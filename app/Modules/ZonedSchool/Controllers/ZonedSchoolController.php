@@ -9,17 +9,17 @@ use App\Modules\ZonedSchool\Export\ZoneAddressExport;
 use App\Modules\ZonedSchool\Export\ZonedSchoolImport;
 use App\Modules\ZonedSchool\Models\NoZonedSchool;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
-use Validator;
-use Session;
-use DB;
-use Auth;
-// use Illuminate\Support\Facades\DB;
 
 class ZonedSchoolController extends Controller
 {
 
-    public function __construct(){
+    public function __construct()
+    {
         // session()->put('district_id', 1);  //26-6-20
     }
 
@@ -30,14 +30,14 @@ class ZonedSchoolController extends Controller
     }
 
     public function index($master_id)
-    {  
-        $master_address_id = $master_id; 
+    {
+        $master_address_id = $master_id;
         return view('ZonedSchool::index', compact('master_address_id'));
     }
 
     public function addressOverrideAddress()
     {
-        $zonedSchool = ZonedSchool::where('added_by','manual')->get();
+        $zonedSchool = ZonedSchool::where('added_by', 'manual')->get();
         return view('ZonedSchool::address_override_index', compact('zonedSchool'));
     }
 
@@ -45,8 +45,8 @@ class ZonedSchoolController extends Controller
     {
         $send_arr = $data_arr = array();
         // $zoneData = ZonedSchool::take(1000)->get();
-        $zoneData = ZonedSchool::getZonedSchoolList($request->all(),1,$master_address_id);
-        $total = ZonedSchool::getZonedSchoolList($request->all(),0,$master_address_id);
+        $zoneData = ZonedSchool::getZonedSchoolList($request->all(), 1, $master_address_id);
+        $total = ZonedSchool::getZonedSchoolList($request->all(), 0, $master_address_id);
         // dd($zoneData);
         foreach ($zoneData as $value) {
             $send_arr[] = [
@@ -61,13 +61,13 @@ class ZonedSchoolController extends Controller
                 $value->intermediate_school,
                 $value->middle_school,
                 $value->high_school,
-                "<div class='text-center'><a href=".url('admin/ZonedSchool/edit',$value->id)." title='Edit' class='font-18'><i class='far fa-edit'></i></a></div>"
+                "<div class='text-center'><a href=" . url('admin/ZonedSchool/edit', $value->id) . " title='Edit' class='font-18'><i class='far fa-edit'></i></a></div>"
             ];
         }
 
-        $data_arr['recordsTotal']=$total;
-        $data_arr['recordsFiltered']=$total;
-        $data_arr['data']=$send_arr;
+        $data_arr['recordsTotal'] = $total;
+        $data_arr['recordsFiltered'] = $total;
+        $data_arr['data'] = $send_arr;
         return json_encode($data_arr);
         // dd($zoneData);
     }
@@ -90,21 +90,17 @@ class ZonedSchoolController extends Controller
         $prefix_dir = explode(",", $common_data[0]->prefix_dir);
         $city = explode(",", $common_data[0]->city);
         $zip = explode(",", $common_data[0]->zip);
-        
+
         $elementary_school = explode(",", $common_data[0]->elementary_school);
-        foreach($mag_el as $val)
-        {
-            if(!in_array($val, $elementary_school))
-            {
+        foreach ($mag_el as $val) {
+            if (!in_array($val, $elementary_school)) {
                 $elementary_school[] = $val;
             }
         }
 
         $middle_school = explode(",", $common_data[0]->middle_school);
-        foreach($mag_middle as $val)
-        {
-            if(!in_array($val, $middle_school))
-            {
+        foreach ($mag_middle as $val) {
+            if (!in_array($val, $middle_school)) {
                 $middle_school[] = $val;
             }
         }
@@ -120,13 +116,14 @@ class ZonedSchoolController extends Controller
         sort($middle_school);
         sort($intermediate_school);
 
-        return view('ZonedSchool::create', compact("street_type", "prefix_dir", "city", "zip", "elementary_school", "middle_school", "high_school", "intermediate_school"));   
+        return view('ZonedSchool::create', compact("street_type", "prefix_dir", "city", "zip", "elementary_school", "middle_school", "high_school", "intermediate_school"));
     }
 
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         $district_id = Session::get("district_id");
-        $msg=[
-            'street_name.required'=>'Street Name is required.',
+        $msg = [
+            'street_name.required' => 'Street Name is required.',
             /*'zip.required'=>'Zip code is required.',
             'zip.regex'=>'The Zip code must be an integer.',
             'zip.max'=>'The Zip code may not be grater than 6 characters.',
@@ -134,18 +131,18 @@ class ZonedSchoolController extends Controller
         ];
 
         $validateData = $request->validate([
-            'street_name' =>'required|max:255',
+            'street_name' => 'required|max:255',
             //'zip' =>'required|regex:/^\d+$/|max:6|min:5',
-        ],$msg);
+        ], $msg);
 
-        if($request->elementary_school == "" && $request->intermediate_school == "" && $request->middle_school == "" && $request->high_school == ""){
-            Session::flash('error',"At least one school is required.");
-            return redirect()->back()->withInput(); 
+        if ($request->elementary_school == "" && $request->intermediate_school == "" && $request->middle_school == "" && $request->high_school == "") {
+            Session::flash('error', "At least one school is required.");
+            return redirect()->back()->withInput();
         }
 
         $suffix_dir_full = "";
-        if(isset($request->suffix_dir)){
-            $suffixArr = ['S'=>'South', 'E'=>'East', 'N'=>'North', 'W'=>'West'];
+        if (isset($request->suffix_dir)) {
+            $suffixArr = ['S' => 'South', 'E' => 'East', 'N' => 'North', 'W' => 'West'];
             (isset($suffixArr[$request->suffix_dir])) ? $suffix_dir_full = $suffixArr[$request->suffix_dir] : "";
         }
 
@@ -153,7 +150,7 @@ class ZonedSchoolController extends Controller
 
         $data['bldg_num'] = $request->bldg_num;
         $data['street_name'] = $request->street_name;
-        if($request->street_type == "Other")
+        if ($request->street_type == "Other")
             $data['street_type'] = $request->street_type_other;
         else
             $data['street_type'] = $request->street_type;
@@ -164,32 +161,32 @@ class ZonedSchoolController extends Controller
         $data['prefix_dir'] = $request->prefix_dir;
         $data['user_id'] = Auth::user()->id;
 
-        if($request->city == "Other")
+        if ($request->city == "Other")
             $data['city'] = $request->city_other;
         else
             $data['city'] = $request->city;
 
-        if($request->zip == "Other")
+        if ($request->zip == "Other")
             $data['zip'] = $request->zip_other;
         else
             $data['zip'] = $request->zip;
 
-        if($request->elementary_school == "Other")
+        if ($request->elementary_school == "Other")
             $data['elementary_school'] = $request->elementary_school_other;
         else
             $data['elementary_school'] = $request->elementary_school;
 
-        if($request->intermediate_school == "Other")
+        if ($request->intermediate_school == "Other")
             $data['intermediate_school'] = $request->intermediate_school_other;
         else
             $data['intermediate_school'] = $request->intermediate_school;
 
-        if($request->middle_school == "Other")
+        if ($request->middle_school == "Other")
             $data['middle_school'] = $request->middle_school_other;
         else
             $data['middle_school'] = $request->middle_school;
 
-        if($request->high_school == "Other")
+        if ($request->high_school == "Other")
             $data['high_school'] = $request->high_school_other;
         else
             $data['high_school'] = $request->high_school;
@@ -199,17 +196,16 @@ class ZonedSchoolController extends Controller
         $data['district_id'] = $district_id;
         $data['zone_master_id'] = 1;
 
-         //dd($data);
+        //dd($data);
         $zoned_id = ZonedSchool::create($data)->id;
 
-        if(isset($zoned_id)){
+        if (isset($zoned_id)) {
             Session::flash("success", "Zone Address added successfully.");
-        }else{
+        } else {
             Session::flash("error", "Please Try Again.");
         }
 
-        if (isset($request->save_exit))
-        {
+        if (isset($request->save_exit)) {
             return redirect('admin/ZonedSchool/overrideAddress');
         }
         return redirect('admin/ZonedSchool/create');
@@ -244,29 +240,29 @@ class ZonedSchoolController extends Controller
         sort($middle_school);
         sort($intermediate_school);
 
-        $zonedschool = ZonedSchool::where('id',$id)->first();
-        return view('ZonedSchool::edit', compact('zonedschool',"street_type", "prefix_dir", "city", "zip", "elementary_school", "middle_school", "high_school", "intermediate_school"));
+        $zonedschool = ZonedSchool::where('id', $id)->first();
+        return view('ZonedSchool::edit', compact('zonedschool', "street_type", "prefix_dir", "city", "zip", "elementary_school", "middle_school", "high_school", "intermediate_school"));
     }
 
     public function update(Request $request, $id)
     {
         // return $request->all();
-        $msg=[
-            'street_name.required'=>'Street Name is required.',
-            'zip.required'=>'Zip code is required.',
-            'zip.regex'=>'The Zip code must be an integer.',
-            'zip.max'=>'The Zip code may not be grater than 6 characters.',
-            'zip.min'=>'The Zip code must be at least 5 characters.',
+        $msg = [
+            'street_name.required' => 'Street Name is required.',
+            'zip.required' => 'Zip code is required.',
+            'zip.regex' => 'The Zip code must be an integer.',
+            'zip.max' => 'The Zip code may not be grater than 6 characters.',
+            'zip.min' => 'The Zip code must be at least 5 characters.',
         ];
 
         $validateData = $request->validate([
-            'street_name' =>'required|max:255',
-            'zip' =>'required|regex:/^\d+$/|max:6|min:5',
-        ],$msg);
+            'street_name' => 'required|max:255',
+            'zip' => 'required|regex:/^\d+$/|max:6|min:5',
+        ], $msg);
 
         $suffix_dir_full = "";
-        if(isset($request->suffix_dir)){
-            $suffixArr = ['S'=>'South', 'E'=>'East', 'N'=>'North', 'W'=>'West'];
+        if (isset($request->suffix_dir)) {
+            $suffixArr = ['S' => 'South', 'E' => 'East', 'N' => 'North', 'W' => 'West'];
             (isset($suffixArr[$request->suffix_dir])) ? $suffix_dir_full = $suffixArr[$request->suffix_dir] : "";
         }
 
@@ -274,7 +270,7 @@ class ZonedSchoolController extends Controller
 
         $data['bldg_num'] = $request->bldg_num;
         $data['street_name'] = $request->street_name;
-        if($request->street_type == "Other")
+        if ($request->street_type == "Other")
             $data['street_type'] = $request->street_type_other;
         else
             $data['street_type'] = $request->street_type;
@@ -284,41 +280,41 @@ class ZonedSchoolController extends Controller
         $data['state'] = $request->state;
         $data['prefix_dir'] = $request->prefix_dir;
 
-        if($request->city == "Other")
+        if ($request->city == "Other")
             $data['city'] = $request->city_other;
         else
             $data['city'] = $request->city;
 
-        if($request->zip == "Other")
+        if ($request->zip == "Other")
             $data['zip'] = $request->zip_other;
         else
             $data['zip'] = $request->zip;
 
-        if($request->elementary_school == "Other")
+        if ($request->elementary_school == "Other")
             $data['elementary_school'] = $request->elementary_school_other;
         else
             $data['elementary_school'] = $request->elementary_school;
 
-        if($request->intermediate_school == "Other")
+        if ($request->intermediate_school == "Other")
             $data['intermediate_school'] = $request->intermediate_school_other;
         else
             $data['intermediate_school'] = $request->intermediate_school;
 
-        if($request->middle_school == "Other")
+        if ($request->middle_school == "Other")
             $data['middle_school'] = $request->middle_school_other;
         else
             $data['middle_school'] = $request->middle_school;
 
-        if($request->high_school == "Other")
+        if ($request->high_school == "Other")
             $data['high_school'] = $request->high_school_other;
         else
             $data['high_school'] = $request->high_school;
 
-       // $data['user_id'] = Auth::user()->id;
-        $data['district_id'] = Session::get('district_id');//$district_id;
+        // $data['user_id'] = Auth::user()->id;
+        $data['district_id'] = Session::get('district_id'); //$district_id;
 
 
-        $result = ZonedSchool::where('id',$id)->update($data);
+        $result = ZonedSchool::where('id', $id)->update($data);
 
         if (isset($result)) {
             Session::flash("success", "Zoned Address Updated successfully.");
@@ -326,19 +322,18 @@ class ZonedSchoolController extends Controller
             Session::flash("error", "Please Try Again.");
         }
 
-        if (isset($request->save_exit))
-        {
-            if($request->added_by == 'manual'){
+        if (isset($request->save_exit)) {
+            if ($request->added_by == 'manual') {
                 return redirect('admin/ZonedSchool/overrideAddress');
-            }else{
+            } else {
                 return redirect('admin/ZonedSchool');
             }
         }
-        return redirect('admin/ZonedSchool/edit/'.$id);
-    }   
+        return redirect('admin/ZonedSchool/edit/' . $id);
+    }
 
     public function search(Request $request)
-    {   
+    {
         // return request()->url();
         $tmpaddress = $address = strtolower($request->address);
         $tmpaddress = str_replace(" ", "", $tmpaddress);
@@ -349,50 +344,44 @@ class ZonedSchoolController extends Controller
 
         $arr = array();
         $tmpstr = "";
-        for($i=0; $i < count($withoutspace); $i++)
-        {
+        for ($i = 0; $i < count($withoutspace); $i++) {
             $tmpstr .= $withoutspace[$i];
-            if($i+1 < count($withoutspace))
-            {
-                $str = $withoutspace[$i]."".$withoutspace[$i+1];
+            if ($i + 1 < count($withoutspace)) {
+                $str = $withoutspace[$i] . "" . $withoutspace[$i + 1];
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $str));
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $tmpstr));
-            }
-            else
-            {
+            } else {
                 $str = $withoutspace[$i];
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $str));
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $tmpstr));
             }
-            if($i > 0)
-            {
-                $str = $withoutspace[$i-1]."".$withoutspace[$i].(isset($withoutspace[$i+1]) ? $withoutspace[$i+1] : "");
+            if ($i > 0) {
+                $str = $withoutspace[$i - 1] . "" . $withoutspace[$i] . (isset($withoutspace[$i + 1]) ? $withoutspace[$i + 1] : "");
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $str));
             }
         }
-        $zoneData = ZonedSchool::where("zip", $zip)->where(DB::raw("LOWER(replace(city, ' ',''))"), strtolower(str_replace(" ","", $city)));
+        $zoneData = ZonedSchool::where("zip", $zip)->where(DB::raw("LOWER(replace(city, ' ',''))"), strtolower(str_replace(" ", "", $city)));
 
-        $zoneData->where(function($q) use ($arr, $withoutspace) {
-          $q->whereIn(DB::raw("LOWER(replace(street_name,' ', ''))"), $withoutspace)
-             ->orWhereIn(DB::raw("LOWER(replace(street_name,' ', ''))"), $arr);
+        $zoneData->where(function ($q) use ($arr, $withoutspace) {
+            $q->whereIn(DB::raw("LOWER(replace(street_name,' ', ''))"), $withoutspace)
+                ->orWhereIn(DB::raw("LOWER(replace(street_name,' ', ''))"), $arr);
         });
-        $streetMatch = $zoneData->get();//clone($zoneData);//->get();
+        $streetMatch = $zoneData->get(); //clone($zoneData);//->get();
         // echo $tmpaddress;exit;
-        $streetPlusBldg = $zoneData->where(function($q) use ($arr, $withoutspace, $tmpaddress) {
+        $streetPlusBldg = $zoneData->where(function ($q) use ($arr, $withoutspace, $tmpaddress) {
             $q->whereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name),' ', ''))"), $withoutspace)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name),' ', ''))"), $arr)
-                 ->orWhere(DB::raw("LOWER(replace(concat(bldg_num, street_name),' ', ''))"), "LIKE","%".$tmpaddress."%")
+                ->orWhere(DB::raw("LOWER(replace(concat(bldg_num, street_name),' ', ''))"), "LIKE", "%" . $tmpaddress . "%")
                 ->orWhereIn(DB::raw("LOWER(replace(concat(street_name, bldg_num),' ', ''))"), $withoutspace)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(street_name, bldg_num),' ', ''))"), $arr)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, prefix_dir, street_name),' ', ''))"), $arr)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, prefix_type, street_name),' ', ''))"), $arr);
-                /*->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,unit_info),' ', ''))"), $withoutspace)
+            /*->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,unit_info),' ', ''))"), $withoutspace)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,unit_info),' ', ''))"), $arr)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,street_type),' ', ''))"), $withoutspace)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,street_type),' ', ''))"), $arr)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,unit_info),' ', ''))"), $withoutspace)
                 ->orWhereIn(DB::raw("LOWER(replace(concat(bldg_num, street_name,unit_info),' ', ''))"), $arr);*/
-
         })->get();
         // print_r($streetPlusBldg);exit;
 
@@ -401,68 +390,114 @@ class ZonedSchoolController extends Controller
         // $addressDiv .= '<thead><tr><th>Bldg No</th><th>Street Address</th><th>City</th><th>Zip</th><th>Elementary School</th><th>Intermediate School</th><th>Middle School</th><th>High School</th></tr></thead><tbody>';
         $addressDiv .= '<thead><tr><th>Bldg No</th><th>Street Address</th><th>Street Type</th><th>City</th><th>Zip</th></tr></thead><tbody>';
 
-        if(count($streetPlusBldg) > 0)
-        {
+        if (count($streetPlusBldg) > 0) {
             $count = 0;
             $exportData = $streetPlusBldg;
-            foreach($streetPlusBldg as $key=>$value)
-            {
-                $addressDiv .= '<tr><td>'.$value->bldg_num.'</td>';
-                $addressDiv .= '<td>'.$value->street_name.'</td>';
-                $addressDiv .= '<td>'.$value->street_type.'</td>';
-                $addressDiv .= '<td>'.$value->city.'</td>';
-                $addressDiv .= '<td>'.$value->zip.'</td></tr>';
+            foreach ($streetPlusBldg as $key => $value) {
+                $addressDiv .= '<tr><td>' . $value->bldg_num . '</td>';
+                $addressDiv .= '<td>' . $value->street_name . '</td>';
+                $addressDiv .= '<td>' . $value->street_type . '</td>';
+                $addressDiv .= '<td>' . $value->city . '</td>';
+                $addressDiv .= '<td>' . $value->zip . '</td></tr>';
                 // $addressDiv .= '<td>'.$value->elementary_school.'</td>';
                 // $addressDiv .= '<td>'.$value->intermediate_school.'</td>';
                 // $addressDiv .= '<td>'.$value->middle_school.'</td>';
                 // $addressDiv .= '<td>'.$value->high_school.'</td></tr>';
 
-                if($count==0)
-                {
+                if ($count == 0) {
                     $elementary_school = $value->elementary_school;
                     preg_match('#\((.*?)\)#', $elementary_school, $pmatch);
-                    if(isset($pmatch[1]))
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$pmatch[1]));
+                    if (isset($pmatch[1])) {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $pmatch[1]));
                         $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1] || $grade == "PreK" || $grade == "K")
-                        {
+                        if ($grade <= $tmp[1] || $grade == "PreK" || $grade == "K") {
                             $zoned_school = $elementary_school;
                         }
                     }
 
                     $intermediate_school = $value->intermediate_school;
                     preg_match('#\((.*?)\)#', $intermediate_school, $imatch);
-                    if(isset($imatch[1]) && $zoned_school == '')
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$imatch[1]));
+                    if (isset($imatch[1]) && $zoned_school == '') {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $imatch[1]));
                         $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1])
-                        {
+                        if ($grade <= $tmp[1]) {
                             $zoned_school = $intermediate_school;
                         }
                     }
-                    
+
                     $middle_school = $value->middle_school;
                     preg_match('#\((.*?)\)#', $middle_school, $mmatch);
-                    if(isset($mmatch[1]) && $zoned_school == '')
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$mmatch[1]));
+                    if (isset($mmatch[1]) && $zoned_school == '') {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $mmatch[1]));
                         $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1])
-                        {
+                        if ($grade <= $tmp[1]) {
                             $zoned_school = $middle_school;
                         }
                     }
 
                     $high_school = $value->high_school;
                     preg_match('#\((.*?)\)#', $high_school, $hmatch);
-                    if(isset($hmatch[1]) && $zoned_school == '')
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$hmatch[1]));
+                    if (isset($hmatch[1]) && $zoned_school == '') {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $hmatch[1]));
                         $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1])
-                        {
+                        if ($grade <= $tmp[1]) {
+                            $zoned_school = $high_school;
+                        }
+                    }
+                }
+                $count++;
+            }
+        } else {
+            $exportData = $streetMatch;
+            $count = 0;
+            foreach ($streetMatch as $key => $value) {
+                $addressDiv .= '<tr><td>' . $value->bldg_num . '</td>';
+                $addressDiv .= '<td>' . $value->street_name . '</td>';
+                $addressDiv .= '<td>' . $value->street_type . '</td>';
+                $addressDiv .= '<td>' . $value->city . '</td>';
+                $addressDiv .= '<td>' . $value->zip . '</td></tr>';
+                // $addressDiv .= '<td>'.$value->elementary_school.'</td>';
+                // $addressDiv .= '<td>'.$value->intermediate_school.'</td>';
+                // $addressDiv .= '<td>'.$value->middle_school.'</td>';
+                // $addressDiv .= '<td>'.$value->high_school.'</td></tr>';
+
+                if ($count == 0) {
+                    $elementary_school = $value->elementary_school;
+                    preg_match('#\((.*?)\)#', $elementary_school, $pmatch);
+                    if (isset($pmatch[1])) {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $pmatch[1]));
+                        $tmp = explode("-", $sgrade);
+                        if ($grade <= $tmp[1] || $grade == "PreK" || $grade == "K") {
+                            $zoned_school = $elementary_school;
+                        }
+                    }
+
+                    $intermediate_school = $value->intermediate_school;
+                    preg_match('#\((.*?)\)#', $intermediate_school, $imatch);
+                    if (isset($imatch[1]) && $zoned_school == '') {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $imatch[1]));
+                        $tmp = explode("-", $sgrade);
+                        if ($grade <= $tmp[1]) {
+                            $zoned_school = $intermediate_school;
+                        }
+                    }
+
+                    $middle_school = $value->middle_school;
+                    preg_match('#\((.*?)\)#', $middle_school, $mmatch);
+                    if (isset($mmatch[1]) && $zoned_school == '') {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $mmatch[1]));
+                        $tmp = explode("-", $sgrade);
+                        if ($grade <= $tmp[1]) {
+                            $zoned_school = $middle_school;
+                        }
+                    }
+
+                    $high_school = $value->high_school;
+                    preg_match('#\((.*?)\)#', $high_school, $hmatch);
+                    if (isset($hmatch[1]) && $zoned_school == '') {
+                        $sgrade = str_replace("grades", "", str_replace(" ", "", $hmatch[1]));
+                        $tmp = explode("-", $sgrade);
+                        if ($grade <= $tmp[1]) {
                             $zoned_school = $high_school;
                         }
                     }
@@ -470,98 +505,27 @@ class ZonedSchoolController extends Controller
                 $count++;
             }
         }
-        else
-        {
-            $exportData = $streetMatch;
-            $count = 0;
-            foreach($streetMatch as $key=>$value)
-            {
-                $addressDiv .= '<tr><td>'.$value->bldg_num.'</td>';
-                $addressDiv .= '<td>'.$value->street_name.'</td>';
-                $addressDiv .= '<td>'.$value->street_type.'</td>';
-                $addressDiv .= '<td>'.$value->city.'</td>';
-                $addressDiv .= '<td>'.$value->zip.'</td></tr>';
-                // $addressDiv .= '<td>'.$value->elementary_school.'</td>';
-                // $addressDiv .= '<td>'.$value->intermediate_school.'</td>';
-                // $addressDiv .= '<td>'.$value->middle_school.'</td>';
-                // $addressDiv .= '<td>'.$value->high_school.'</td></tr>';
-
-                if($count == 0)
-                {
-                    $elementary_school = $value->elementary_school;
-                    preg_match('#\((.*?)\)#', $elementary_school, $pmatch);
-                    if(isset($pmatch[1]))
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$pmatch[1]));
-                        $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1] || $grade == "PreK" || $grade == "K")
-                        {
-                            $zoned_school = $elementary_school;
-                        }
-                    }
-
-                    $intermediate_school = $value->intermediate_school;
-                    preg_match('#\((.*?)\)#', $intermediate_school, $imatch);
-                    if(isset($imatch[1]) && $zoned_school == '')
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$imatch[1]));
-                        $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1])
-                        {
-                            $zoned_school = $intermediate_school;
-                        }
-                    }
-                    
-                    $middle_school = $value->middle_school;
-                    preg_match('#\((.*?)\)#', $middle_school, $mmatch);
-                    if(isset($mmatch[1]) && $zoned_school == '')
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$mmatch[1]));
-                        $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1])
-                        {
-                            $zoned_school = $middle_school;
-                        }
-                    }
-
-                    $high_school = $value->high_school;
-                    preg_match('#\((.*?)\)#', $high_school, $hmatch);
-                    if(isset($hmatch[1]) && $zoned_school == '')
-                    {
-                        $sgrade = str_replace("grades", "", str_replace(" ","",$hmatch[1]));
-                        $tmp = explode("-", $sgrade);
-                        if($grade <= $tmp[1])
-                        {
-                            $zoned_school = $high_school;
-                        }
-                    }                }
-                $count++;
-            }
-        }
         $addressDiv .= "</tbody></table>";
 
         // $html = "<div class='col-12 row'><div class='col-6'>".$addressDiv."</div>";
         // $html .= "<div class='col-6'>Zoned School:<bR><strong>".$zoned_school."</strong></div></div>";
-        $html = "<div class='card shadow'><div class='card-body'><div class='row'><div class='col-lg-12 mt-5'>Zoned School:<bR><strong>".$zoned_school."</strong></div></div></div></div>";
-        $html .= "<div class='card shadow'><div class='card-body'><div class='row'><div class='col-lg-12'>".$addressDiv."</div></div></div></div>";
+        $html = "<div class='card shadow'><div class='card-body'><div class='row'><div class='col-lg-12 mt-5'>Zoned School:<bR><strong>" . $zoned_school . "</strong></div></div></div></div>";
+        $html .= "<div class='card shadow'><div class='card-body'><div class='row'><div class='col-lg-12'>" . $addressDiv . "</div></div></div></div>";
 
-        if(str_contains(request()->url(), '/export'))
-        {
+        if (str_contains(request()->url(), '/export')) {
             return $this->exportZonedSchool($exportData, $zoned_school);
-        }
-        else
-        {            
+        } else {
             echo $html;
         }
     }
 
     public function search1(Request $request)
-    {   
+    {
         $tmpaddress = $address = strtolower($request->address);
         $tmpaddress = str_replace(" ", "", $tmpaddress);
         $tmpaddress = str_replace(",", "", $tmpaddress);
         $zip = $request->zip;
-        $tmp = explode("-",$zip);
+        $tmp = explode("-", $zip);
         $zip = $tmp[0];
         $city = $request->city;
         $grade = $request->grade;
@@ -569,143 +533,128 @@ class ZonedSchoolController extends Controller
 
         $arr = array();
         $tmpstr = "";
-        for($i=0; $i < count($withoutspace); $i++)
-        {
+        for ($i = 0; $i < count($withoutspace); $i++) {
             $tmpstr .= $withoutspace[$i];
-            if($i+1 < count($withoutspace))
-            {
-                $str = $withoutspace[$i]."".$withoutspace[$i+1];
+            if ($i + 1 < count($withoutspace)) {
+                $str = $withoutspace[$i] . "" . $withoutspace[$i + 1];
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $str));
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $tmpstr));
-            }
-            else
-            {
+            } else {
                 $str = $withoutspace[$i];
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $str));
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $tmpstr));
             }
-            if($i > 0)
-            {
-                $str = $withoutspace[$i-1]."".$withoutspace[$i].(isset($withoutspace[$i+1]) ? $withoutspace[$i+1] : "");
+            if ($i > 0) {
+                $str = $withoutspace[$i - 1] . "" . $withoutspace[$i] . (isset($withoutspace[$i + 1]) ? $withoutspace[$i + 1] : "");
                 $arr[] = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $str));
             }
         }
-        $zoneData = ZonedSchool::where("zip", $zip)->where(DB::raw("LOWER(replace(city, ' ',''))"), strtolower(str_replace(" ","", $city)));
+        $zoneData = ZonedSchool::where("zip", $zip)->where(DB::raw("LOWER(replace(city, ' ',''))"), strtolower(str_replace(" ", "", $city)));
 
-        $cityMatchData = clone($zoneData);//->get();
+        $cityMatchData = clone ($zoneData); //->get();
 
 
-        $zoneData->where(function($q) use ($arr, $withoutspace) {
+        $zoneData->where(function ($q) use ($arr, $withoutspace) {
             $count = 0;
-            foreach($withoutspace as $word){
+            foreach ($withoutspace as $word) {
 
-                if($count == 0)
+                if ($count == 0)
                     $q->where(DB::raw("LOWER(replace(street_name,' ', ''))"), $word);
                 else
-                    $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), $word);  
-                $count++;                  
+                    $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), $word);
+                $count++;
             }
 
-            foreach($arr as $word){
+            foreach ($arr as $word) {
                 $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), $word);
             }
         });
 
 
-        $streetMatch = clone($zoneData);
+        $streetMatch = clone ($zoneData);
 
-        $zoneData->where(function($q) use ($arr, $withoutspace) {
+        $zoneData->where(function ($q) use ($arr, $withoutspace) {
             $count = 0;
-            foreach($withoutspace as $word){
-                if($count == 0)
+            foreach ($withoutspace as $word) {
+                if ($count == 0)
                     $q->where(DB::raw("LOWER(replace(concat(bldg_num),' ', ''))"), $word);
                 else
-                    $q->orWhere(DB::raw("LOWER(replace(concat(bldg_num),' ', ''))"), $word);  
-                $count++;                  
+                    $q->orWhere(DB::raw("LOWER(replace(concat(bldg_num),' ', ''))"), $word);
+                $count++;
             }
 
-            foreach($arr as $word){
+            foreach ($arr as $word) {
                 $q->orWhere(DB::raw("LOWER(replace(concat(bldg_num),' ', ''))"), $word);
             }
         });
-        $streetBldgMatch = clone($zoneData);
-        $streetPlusBldg = $zoneData->where(function($q) use ($arr, $withoutspace, $tmpaddress) {
-              $q->where(DB::raw("LOWER(replace(concat(bldg_num, street_name, street_type),' ', ''))"), $tmpaddress)
+        $streetBldgMatch = clone ($zoneData);
+        $streetPlusBldg = $zoneData->where(function ($q) use ($arr, $withoutspace, $tmpaddress) {
+            $q->where(DB::raw("LOWER(replace(concat(bldg_num, street_name, street_type),' ', ''))"), $tmpaddress)
                 ->orWhere(DB::raw("LOWER(replace(concat(bldg_num, street_name, street_type, suffix_dir),' ', ''))"), $tmpaddress)
                 ->orWhere(DB::raw("LOWER(replace(concat(bldg_num, street_name, street_type, suffix_dir, unit_info),' ', ''))"), $tmpaddress)
                 ->orWhere(DB::raw("LOWER(replace(concat(bldg_num, street_name, street_type, suffix_dir_full),' ', ''))"), $tmpaddress)
                 ->orWhere(DB::raw("LOWER(replace(concat(bldg_num, street_name, street_type, suffix_dir_full, unit_info),' ', ''))"), $tmpaddress);
-
         })->get();
 
         $addressDiv = $zoned_school = $exportData = "";
 
-        if(count($streetPlusBldg) > 0)
-        {
+        if (count($streetPlusBldg) > 0) {
             $count = 0;
             $exportData = $streetPlusBldg;
             $str = "<select onchange='selectAddress(this.value)' class='form-control' id='addoptions'>";
             $str .= "<option value=''>Select any address</option>";
             $add = "";
             $exatmatch = $matched = "";
-            foreach($streetPlusBldg as $key=>$value)
-            {
+            foreach ($streetPlusBldg as $key => $value) {
 
-                $add = $value->bldg_num." ".$value->street_name." ".$value->street_type." ".$value->suffix_dir." ".$value->unit_info;
+                $add = $value->bldg_num . " " . $value->street_name . " " . $value->street_type . " " . $value->suffix_dir . " " . $value->unit_info;
                 $exatmatch = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $add));
-                $exatmatch = str_replace(" ","", $exatmatch);
-                $exatmatch = str_replace(",","", $exatmatch);
-                if($exatmatch == $tmpaddress)
+                $exatmatch = str_replace(" ", "", $exatmatch);
+                $exatmatch = str_replace(",", "", $exatmatch);
+                if ($exatmatch == $tmpaddress)
                     $matched = $add;
-                $str .= "<option value='".trim($add)."'>".trim($add)."</option>";
+                $str .= "<option value='" . trim($add) . "'>" . trim($add) . "</option>";
             }
             $str .= "</select>";
-            if($matched != "")
+            if ($matched != "")
                 return $request->address;
-            if(count($streetPlusBldg) == 1)
-            {
+            if (count($streetPlusBldg) == 1) {
                 echo $add;
-            }
-            else
+            } else
                 echo $str;
-        }
-        else
-        {
+        } else {
             $exportData = $streetBldgMatch->get();
-            if(count($exportData) <= 0)
-            {
+            if (count($exportData) <= 0) {
                 $exportData = $streetMatch->get();
             }
 
 
-            if(count($exportData) <= 0)
-            {
-                $exportData = $cityMatchData->where(function($q) use ($arr, $withoutspace) {
+            if (count($exportData) <= 0) {
+                $exportData = $cityMatchData->where(function ($q) use ($arr, $withoutspace) {
                     $count = 0;
-                    foreach($withoutspace as $word){
+                    foreach ($withoutspace as $word) {
 
-                        if($count == 0)
-                            $q->where(DB::raw("LOWER(replace(street_name,' ', ''))"), 'LIKE', '%'.$word.'%');
+                        if ($count == 0)
+                            $q->where(DB::raw("LOWER(replace(street_name,' ', ''))"), 'LIKE', '%' . $word . '%');
                         else
-                            $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), 'LIKE', '%'.$word.'%');  
-                        $count++;                  
+                            $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), 'LIKE', '%' . $word . '%');
+                        $count++;
                     }
 
-                    foreach($arr as $word){
-                        $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), 'LIKE', '%'.$word.'%');
+                    foreach ($arr as $word) {
+                        $q->orWhere(DB::raw("LOWER(replace(street_name,' ', ''))"), 'LIKE', '%' . $word . '%');
                     }
                 })->get();
             }
             $count = 0;
 
-            
-            if(count($exportData) == 0)
-            {
+
+            if (count($exportData) == 0) {
                 $insert = array();
                 $insert['street_address'] = $request->address;
                 $insert['city'] = $request->city;
                 $insert['zip'] = $request->zip;
-                
+
                 $nz = NoZonedSchool::create($insert);
 
                 Session::forget("step_session");
@@ -716,43 +665,39 @@ class ZonedSchoolController extends Controller
             $str .= "<option value=''>Select any address</option>";
             $add = "";
             $exatmatch = $matched = "";
-            foreach($exportData as $key=>$value)
-            {
-                $add = $value->bldg_num." ".$value->street_name." ".$value->street_type." ".$value->suffix_dir." ".$value->unit_info;
+            foreach ($exportData as $key => $value) {
+                $add = $value->bldg_num . " " . $value->street_name . " " . $value->street_type . " " . $value->suffix_dir . " " . $value->unit_info;
                 $exatmatch = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '', $add));
-                $exatmatch = str_replace(" ","", $exatmatch);
-                $exatmatch = str_replace(",","", $exatmatch);
-                if($exatmatch == $tmpaddress)
+                $exatmatch = str_replace(" ", "", $exatmatch);
+                $exatmatch = str_replace(",", "", $exatmatch);
+                if ($exatmatch == $tmpaddress)
                     $matched = $add;
-                $str .= "<option value='".trim($add)."'>".trim($add)."</option>";
+                $str .= "<option value='" . trim($add) . "'>" . trim($add) . "</option>";
             }
             $str .= "</select>";
 
-            if($matched != "")
+            if ($matched != "")
                 return $request->address;
 
 
-            if(count($exportData) == 1)
-            {
+            if (count($exportData) == 1) {
                 echo $add;
-            }
-            else
+            } else
                 echo $str;
-
         }
         exit;
-
     }
 
     public function exportZonedSchool($exportData, $zoned_school)
-    {   
+    {
         $data_ary = [];
         $heading = array(
             "Bldg No",
             "Street Address",
             "City",
             "Zip",
-            "Zoned School");
+            "Zoned School"
+        );
         $data_ary[] = $heading;
 
 
@@ -775,40 +720,39 @@ class ZonedSchoolController extends Controller
     {
         return $master_address_id;
         return view('ZonedSchool::import_zoned_school_address');
-    } 
+    }
 
     public function importZonedSchool(Request $request)
     {
         // return 'test';
         $rules = [
             // 'upload_csv'=>'required',
-            'upload_csv'=>'required|mimes:xlsx',
-            'group_name'=>'required' 
+            'upload_csv' => 'required|mimes:xlsx',
+            'group_name' => 'required'
         ];
         $message = [
             // 'upload_csv.required'=>'File is required',
-            'upload_csv.required'=>'File is required',
-            'upload_csv.mimes'=>'Invalid file format | File format must be xlsx.',
-            'group_name.required'=>'The Address Group Name field is required.',
+            'upload_csv.required' => 'File is required',
+            'upload_csv.mimes' => 'Invalid file format | File format must be xlsx.',
+            'group_name.required' => 'The Address Group Name field is required.',
         ];
 
         $validator = Validator::make($request->all(), $rules, $message);
-        if($validator->fails()){
-            Session::flash('error','Please select proper file');
+        if ($validator->fails()) {
+            Session::flash('error', 'Please select proper file');
             return redirect()->back()->withErrors($validator)->withInput();
-        }else
-        {
+        } else {
             $file = $request->file('upload_csv');
             // dd($file);
-            $master_address = ZonedAddressMaster::where('group_name',$request->group_name)->first();
-            if(isset($master_address) && !empty($master_address)){
+            $master_address = ZonedAddressMaster::where('group_name', $request->group_name)->first();
+            if (isset($master_address) && !empty($master_address)) {
                 $zone_master_id = $master_address->id;
-            }else{
+            } else {
                 $address = [
-                    'group_name'=>$request->group_name,
-                    'district_id'=>Session::get('district_id'),
-                    'user_id'=>Auth::user()->id,
-                    'status'=>'N'
+                    'group_name' => $request->group_name,
+                    'district_id' => Session::get('district_id'),
+                    'user_id' => Auth::user()->id,
+                    'status' => 'N'
                 ];
 
                 $zone_master_id = ZonedAddressMaster::create($address)->id;
@@ -819,17 +763,16 @@ class ZonedSchoolController extends Controller
             $invalidArr = $import->invalidArr;
             $addedArr = $import->addedArr;
 
-            Session::flash('success','Zoned Address Imported successfully');
-            return view('ZonedSchool::after_import',compact("invalidArr","addedArr"));
-
+            Session::flash('success', 'Zoned Address Imported successfully');
+            return view('ZonedSchool::after_import', compact("invalidArr", "addedArr"));
         }
-        return  redirect()->back(); 
+        return  redirect()->back();
     }
 
     public function masterChangeStatus($id)
     {
-        ZonedAddressMaster::where('id','!=',$id)->update(['status'=>'N']);
-        ZonedAddressMaster::where('id',$id)->update(['status'=>'Y']);
+        ZonedAddressMaster::where('id', '!=', $id)->update(['status' => 'N']);
+        ZonedAddressMaster::where('id', $id)->update(['status' => 'Y']);
 
         return redirect('admin/ZonedSchool');
     }

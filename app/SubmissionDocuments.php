@@ -7,7 +7,6 @@ use Session;
 
 class SubmissionDocuments extends Model
 {
-    //
     protected $table='submission_documents';
     public $primaryKey='id';
     public $fillable=[

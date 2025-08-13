@@ -1,6 +1,8 @@
 <?php
 
-Route::group([ 'prefix'=>'admin/Eligibility','module' => 'Eligibility', 'middleware' => ['web','auth','super'], 'namespace' => 'App\Modules\Eligibility\Controllers'], function() {
+use Illuminate\Support\Facades\Route;
+
+Route::group(['prefix' => 'admin/Eligibility', 'module' => 'Eligibility', 'middleware' => ['web', 'auth', 'super'], 'namespace' => 'App\Modules\Eligibility\Controllers'], function () {
 
     Route::get('/', 'EligibilityController@index');
     Route::get('/create', 'EligibilityController@create');
@@ -17,16 +19,12 @@ Route::group([ 'prefix'=>'admin/Eligibility','module' => 'Eligibility', 'middlew
 
     Route::get('/subjectManagement/{id?}', 'SubjectManagementController@index');
     Route::post('/updateSubjectManagement', 'SubjectManagementController@updateSubjectManagement');
-    
 
-    Route::group(['prefix'=>"/set"],function()
-    {
-        Route::get("/","SetEligibiltyController@index");
+
+    Route::group(['prefix' => "/set"], function () {
+        Route::get("/", "SetEligibiltyController@index");
     });
 
     Route::get('/edit/grade/subject', 'EligibilityController@editGradeSubject');
     Route::post('/store/grade/subject', 'EligibilityController@storeGradeSubject');
-
 });
-
-/*Route::group([],function())*/

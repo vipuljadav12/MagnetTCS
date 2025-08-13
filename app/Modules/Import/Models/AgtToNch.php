@@ -4,11 +4,10 @@ namespace App\Modules\Import\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class AgtToNch extends Model {
-
-   
+class AgtToNch extends Model
+{
     protected $table = 'agt_to_nch';
-    
+
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -22,5 +21,4 @@ class AgtToNch extends Model {
         'created_at',
         'updated_at',
     ];
-
 }

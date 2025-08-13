@@ -6,20 +6,19 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Program\Models\Program;
 use App\Modules\StudentProfileEligibility\Models\StudentProfileEligibility;
-use DB;
-use Session;
 use App\Modules\Eligibility\Models\Eligibility;
 use App\Modules\Eligibility\Models\EligibilityContent;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
 
 class StudentProfileEligibilityController extends Controller
 {
     protected $module_url = 'admin/StudentProfileEligibility';
 
-    public function __construct(){
-        // 
-    }
+    public function __construct() {}
 
-    public function setData(Request $request) {
+    public function setData(Request $request)
+    {
         $data['program_id'] = $request['program_id'];
         $data['eligibility_id'] = $request['eligibility_id'];
         $data['application_id'] = $request['application_id'];
@@ -29,7 +28,7 @@ class StudentProfileEligibilityController extends Controller
     }
 
     public function index()
-    {  
+    {
         if (!session('sp_eligibility')) {
             abort(404);
         }
@@ -42,7 +41,7 @@ class StudentProfileEligibilityController extends Controller
         return view('StudentProfileEligibility::index', compact('data'))->with('module_url', $this->module_url);
     }
 
-    public function createEdit($id=0)
+    public function createEdit($id = 0)
     {
         $data = session('sp_eligibility');
         $data += $this->getTestScores($data['program_id'], $data['application_id']);
@@ -65,10 +64,10 @@ class StudentProfileEligibilityController extends Controller
             ->select("eligibiility.*")
             ->first();
 
-            
+
         if (isset($ag_eligibility)) {
             $ag_eligibility_content = json_decode(EligibilityContent::where('eligibility_id', $ag_eligibility->id)->first()->content, 1);
-                        // print_r($ag_eligibility_content);
+            // print_r($ag_eligibility_content);
 
         }
         $data['eligibility_subjects'] = $ag_eligibility_content['subjects'] ?? [];
@@ -90,7 +89,8 @@ class StudentProfileEligibilityController extends Controller
         return view('StudentProfileEligibility::section.test_score', compact('data'));
     }*/
 
-    public function getTestScores($program_id, $application_id) {
+    public function getTestScores($program_id, $application_id)
+    {
 
         $eligibility = getEligibilitiesDynamicNew($program_id, $application_id, 'Test Score')[0] ?? [];
         $extra_values = DB::table('seteligibility_extravalue')->where('program_id', $program_id)->where('application_id', $application_id)->where('eligibility_type', $eligibility->eligibility_type)->first()->extra_values ?? '';
@@ -98,7 +98,7 @@ class StudentProfileEligibilityController extends Controller
         return $data;
     }
 
-    public function store(Request $request, $id=0)
+    public function store(Request $request, $id = 0)
     {
         $rules['grade_lavel'] = ($id == 0) ? 'required' : '';
         $messages = [
@@ -136,15 +136,15 @@ class StudentProfileEligibilityController extends Controller
             return redirect($this->module_url);
         }
         if ($id != 0) {
-            return redirect($this->module_url.'/edit/'.$id);
+            return redirect($this->module_url . '/edit/' . $id);
         }
-        return redirect($this->module_url.'/create');
+        return redirect($this->module_url . '/create');
     }
 
     public function delete($id)
-    {   
+    {
         StudentProfileEligibility::where('id', $id)->delete();
-        session()->flash('success', "Student Profile Eligibility deleted successfully."); 
+        session()->flash('success', "Student Profile Eligibility deleted successfully.");
         return redirect($this->module_url);
     }
 

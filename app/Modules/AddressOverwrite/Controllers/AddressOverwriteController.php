@@ -8,6 +8,7 @@ use App\Modules\Student\Models\Student;
 use Illuminate\Support\Facades\Validator;
 use App\Modules\AddressOverwrite\Models\AddressOverwrite;
 use App\Modules\School\Models\School;
+use Illuminate\Support\Facades\Auth;
 
 class AddressOverwriteController extends Controller
 {
@@ -47,11 +48,11 @@ class AddressOverwriteController extends Controller
         if ($validator->fails()) {
             return 'false';
         }
-        $user_id = \Auth::user()->id;
+        $user_id = Auth::user()->id;
         $key_data = [
             'state_id' => $request->id,
             'district_id' => session('district_id'),
-        ]; 
+        ];
         $data = [
             'user_id' => $user_id,
             'zoned_school' => $request->zoned_school,
@@ -59,5 +60,5 @@ class AddressOverwriteController extends Controller
         $id = $request->id;
         $update = AddressOverwrite::updateOrCreate($key_data, $data);
         return $update ? 'true' : 'false';
-    }        
+    }
 }

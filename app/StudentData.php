@@ -7,7 +7,6 @@ use Session;
 
 class StudentData extends Model
 {
-    //
     protected $table='student_data';
     public $additional = [];
     public $date_fields = [];

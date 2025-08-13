@@ -5,7 +5,6 @@ namespace App\Modules\Enrollment\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Enrollment\Models\Enrollment;
-use Session;
 use App\Modules\Enrollment\Models\ADMData;
 use App\Modules\School\Models\School;
 use App\Traits\AuditTrail;
@@ -17,18 +16,18 @@ use App\Modules\Program\Models\{Program, ProgramEligibility, ProgramGradeMapping
 use App\Modules\Application\Models\{Application, ApplicationProgram, ApplicationConfiguration};
 use App\Modules\SetEligibility\Models\{SetEligibility, SetEligibilityConfiguration, SetEligibilityExtraValue};
 use App\Modules\Eligibility\Models\{Eligibility, EligibilityContent, SubjectManagement};
-
+use Illuminate\Support\Facades\Session;
 
 class EnrollmentController extends Controller
 {
     use AuditTrail;
     public function index()
-    {   
+    {
         // dd(Session::get('enrollment_id'));
-        if(Session('district_id')==0){
+        if (Session('district_id') == 0) {
             $enrollments = Enrollment::where('status', '!=', 'T')
                 ->get();
-        }else{
+        } else {
             $enrollments = Enrollment::where('district_id', Session('district_id'))
                 ->where('status', '!=', 'T')
                 ->get();
@@ -38,14 +37,14 @@ class EnrollmentController extends Controller
 
     public function create()
     {
-        if(Session('district_id')!=0){
+        if (Session('district_id') != 0) {
             return view("Enrollment::create");
         }
         return redirect('admin/Enrollment');
     }
 
     public function validationRules()
-    { 
+    {
         $validation = new Enrollment();
         $validation->rules = [
             'school_year' => 'required|max:10|string|regex:/(^[\d]+[\-][\d]+$)/',
@@ -68,11 +67,11 @@ class EnrollmentController extends Controller
     }
 
     public function store(Request $request)
-    { 
+    {
         $validation = $this->validationRules();
         $this->validate($request, $validation->rules, $validation->messages);
 
-        switch($request->import_grades_by){
+        switch ($request->import_grades_by) {
             case 'submission_date':
                 $request['import_grades_by'] = 'SD';
                 break;
@@ -91,46 +90,40 @@ class EnrollmentController extends Controller
         unset($req['_token']);
         unset($req['submit']);
         $req['district_id'] = Session('district_id');
-        
 
-        $last_enroll_id = Enrollment::where('status','!=','T')->where('district_id', \Session::get('district_id'))->latest('updated_at')->first(['id']);
+
+        $last_enroll_id = Enrollment::where('status', '!=', 'T')->where('district_id', Session::get('district_id'))->latest('updated_at')->first(['id']);
         $store = Enrollment::create($req);
         $enroll_id = $store->id;
-        $priority_ids_by_key_value = $this->createPriority($enroll_id,$last_enroll_id->id);
-        $program_ids_by_key_value = $this->createProgram($enroll_id,$last_enroll_id->id,$priority_ids_by_key_value);
+        $priority_ids_by_key_value = $this->createPriority($enroll_id, $last_enroll_id->id);
+        $program_ids_by_key_value = $this->createProgram($enroll_id, $last_enroll_id->id, $priority_ids_by_key_value);
         // always call this function after creation of new programs.
-        $application_ids_by_key_value = $this->createApplication($enroll_id, $last_enroll_id->id,$program_ids_by_key_value);
+        $application_ids_by_key_value = $this->createApplication($enroll_id, $last_enroll_id->id, $program_ids_by_key_value);
         $this->createEligibility($enroll_id, $last_enroll_id->id, $application_ids_by_key_value, $program_ids_by_key_value);
-
-
         $this->setProgramGradeMapping($enroll_id);
         $this->setSubjectManagement($enroll_id);
 
-
-
-        if(isset($store)){
-            $newObj = Enrollment::where('id',$store->id)->first();
-            $this->modelCreate($newObj,"enrollment");
+        if (isset($store)) {
+            $newObj = Enrollment::where('id', $store->id)->first();
+            $this->modelCreate($newObj, "enrollment");
             Session::flash('success', "Enrollment Period added successfully.");
-        }else{
+        } else {
             Session::flash('success', "Enrollment Period not added.");
             return redirect('admin/Enrollment/create');
         }
-        if (isset($request->save_exit))
-        {
+        if (isset($request->save_exit)) {
             return redirect('admin/Enrollment');
-        }
-        else
-        {
+        } else {
             // return redirect()->back();
-            return redirect("admin/Enrollment/edit/".$store->id);
+            return redirect("admin/Enrollment/edit/" . $store->id);
         }
         return redirect('admin/Enrollment');
     }
 
 
-    public function setSubjectManagement($enroll_id) {
-        $new_applications = Application::where('district_id',session('district_id'))->where('enrollment_id',$enroll_id)->get();
+    public function setSubjectManagement($enroll_id)
+    {
+        $new_applications = Application::where('district_id', session('district_id'))->where('enrollment_id', $enroll_id)->get();
         $insert_ary = [];
         $grades = ['PreK', 'K', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
         foreach ($new_applications as $application) {
@@ -154,7 +147,8 @@ class EnrollmentController extends Controller
         return true;
     }
 
-    public function setProgramGradeMapping($enroll_id) {
+    public function setProgramGradeMapping($enroll_id)
+    {
         $new_programs = Program::where("enrollment_id", $enroll_id)->where("district_id", session("district_id"))->get();
         $insert_ary = [];
         foreach ($new_programs as $program) {
@@ -181,12 +175,12 @@ class EnrollmentController extends Controller
     {
         $eligibility_create_array = $old_eligibility_id = $new_eligibility_id = $old_eligibility_id_array = $eligibility_content_create_array = $eligibility_content_array = $set_eligibility_array = $set_eligibility_create_array = $set_program_eligibility_array = $set_program_eligibility_create_array = $set_eligibility_config_array = $set_eligibility_config_create_array = $set_eligibility_extra_value = $set_eligibility_extravalue_array = $set_eligibility_extravalue_create_array = [];
 
-        $old_eligibility = Eligibility::where('district_id',session('district_id'))->where('enrollment_id',$last_enroll_id)->get();
+        $old_eligibility = Eligibility::where('district_id', session('district_id'))->where('enrollment_id', $last_enroll_id)->get();
 
-        if(isset($old_eligibility) && !empty($old_eligibility)){
+        if (isset($old_eligibility) && !empty($old_eligibility)) {
 
             // Eligibility Clone start
-            foreach($old_eligibility as $key=>$eligibility){
+            foreach ($old_eligibility as $key => $eligibility) {
                 $eligibility_array = $eligibility->replicate()->toArray();
                 $eligibility_array['enrollment_id'] = $enroll_id;
 
@@ -197,7 +191,7 @@ class EnrollmentController extends Controller
             // Eligibility Clone end
         }
 
-        $new_eligibility = Eligibility::where('district_id',session('district_id'))->where('enrollment_id',$enroll_id)->get();
+        $new_eligibility = Eligibility::where('district_id', session('district_id'))->where('enrollment_id', $enroll_id)->get();
 
         // Get Old and New eligibility by key(old) and value(new) pair start.
         foreach ($old_eligibility as $o_key => $value) {
@@ -210,8 +204,8 @@ class EnrollmentController extends Controller
         // Get Old and New eligibility by key(old) and value(new) pair end.
 
         // Eligibility Content clone start.
-        $eligibility_content = EligibilityContent::whereIn('eligibility_id',$old_eligibility_id_array)->get();
-        if(isset($eligibility_content) && !empty($eligibility_content)){
+        $eligibility_content = EligibilityContent::whereIn('eligibility_id', $old_eligibility_id_array)->get();
+        if (isset($eligibility_content) && !empty($eligibility_content)) {
             foreach ($eligibility_content as $c_key => $c_value) {
                 $eligibility_content_array = $c_value->replicate()->toArray();
                 $eligibility_content_array['eligibility_id'] = $eligibility_ids[$c_value->eligibility_id] ?? null;
@@ -222,12 +216,12 @@ class EnrollmentController extends Controller
         }
         // Eligibility Content clone end.
 
-        $old_application_ids_array = Application::where('district_id',session('district_id'))->where('enrollment_id',$last_enroll_id)->pluck('id');
+        $old_application_ids_array = Application::where('district_id', session('district_id'))->where('enrollment_id', $last_enroll_id)->pluck('id');
 
         // SetEligibility clone start.
-        $set_eligibility = SetEligibility::where('district_id',session('district_id'))->whereIn('application_id',$old_application_ids_array)->get();
-        if(isset($set_eligibility) && !empty($set_eligibility)){
-            foreach($set_eligibility as $key => $set_value){
+        $set_eligibility = SetEligibility::where('district_id', session('district_id'))->whereIn('application_id', $old_application_ids_array)->get();
+        if (isset($set_eligibility) && !empty($set_eligibility)) {
+            foreach ($set_eligibility as $key => $set_value) {
                 $set_eligibility_array = $set_value->replicate()->toArray();
                 $set_eligibility_array['application_id'] = $application_ids_by_key_value[$set_value->application_id] ?? null;
                 $set_eligibility_array['program_id'] = $program_ids_by_key_value[$set_value->program_id] ?? null;
@@ -240,9 +234,9 @@ class EnrollmentController extends Controller
         // SetEligibility clone end.
 
         // SetEligibilityConfiguration clone start.
-        $set_eligibility_configuration = SetEligibilityConfiguration::where('district_id',session('district_id'))->whereIn('application_id',$old_application_ids_array)->get();
-        if(isset($set_eligibility_configuration) && !empty($set_eligibility_configuration)){
-            foreach($set_eligibility_configuration as $key => $set_config_value){
+        $set_eligibility_configuration = SetEligibilityConfiguration::where('district_id', session('district_id'))->whereIn('application_id', $old_application_ids_array)->get();
+        if (isset($set_eligibility_configuration) && !empty($set_eligibility_configuration)) {
+            foreach ($set_eligibility_configuration as $key => $set_config_value) {
                 $set_eligibility_config_array = $set_config_value->replicate()->toArray();
                 $set_eligibility_config_array['application_id'] = $application_ids_by_key_value[$set_config_value->application_id] ?? null;
                 $set_eligibility_config_array['program_id'] = $program_ids_by_key_value[$set_config_value->program_id] ?? null;
@@ -255,9 +249,9 @@ class EnrollmentController extends Controller
         // SetEligibilityConfiguration clone end.
 
         // SetEligibilityConfiguration clone start.
-        $set_eligibility_extra_value = SetEligibilityExtraValue::whereIn('application_id',$old_application_ids_array)->get();
-        if(isset($set_eligibility_extra_value) && !empty($set_eligibility_extra_value)){
-            foreach($set_eligibility_extra_value as $key => $set_extra_value){
+        $set_eligibility_extra_value = SetEligibilityExtraValue::whereIn('application_id', $old_application_ids_array)->get();
+        if (isset($set_eligibility_extra_value) && !empty($set_eligibility_extra_value)) {
+            foreach ($set_eligibility_extra_value as $key => $set_extra_value) {
                 $set_eligibility_extravalue_array = $set_extra_value->replicate()->toArray();
                 $set_eligibility_extravalue_array['application_id'] = $application_ids_by_key_value[$set_extra_value->application_id] ?? null;
                 $set_eligibility_extravalue_array['program_id'] = $program_ids_by_key_value[$set_extra_value->program_id] ?? null;
@@ -269,9 +263,9 @@ class EnrollmentController extends Controller
         // SetEligibilityConfiguration clone end.
 
         // Set ProgramEligibility start
-        $set_program_eligibility = ProgramEligibility::whereIn('application_id',$old_application_ids_array)->get();
-        if(isset($set_program_eligibility) && !empty($set_program_eligibility)){
-            foreach($set_program_eligibility as $key => $set_program_value){
+        $set_program_eligibility = ProgramEligibility::whereIn('application_id', $old_application_ids_array)->get();
+        if (isset($set_program_eligibility) && !empty($set_program_eligibility)) {
+            foreach ($set_program_eligibility as $key => $set_program_value) {
                 $set_program_eligibility_array = $set_program_value->replicate()->toArray();
                 $set_program_eligibility_array['application_id'] = $application_ids_by_key_value[$set_program_value->application_id] ?? null;
                 $set_program_eligibility_array['program_id'] = $program_ids_by_key_value[$set_program_value->program_id] ?? null;
@@ -290,10 +284,10 @@ class EnrollmentController extends Controller
     {
         $old_application_id = $new_application_id = $application_ids = [];
 
-        $old_applications = Application::where('district_id',session('district_id'))->where('enrollment_id',$last_enroll_id)->get();
+        $old_applications = Application::where('district_id', session('district_id'))->where('enrollment_id', $last_enroll_id)->get();
 
-        if(isset($program_ids_by_key_value) && !empty($program_ids_by_key_value) && isset($old_applications) && !empty($old_applications)){
-            foreach($old_applications as $a_key => $application){
+        if (isset($program_ids_by_key_value) && !empty($program_ids_by_key_value) && isset($old_applications) && !empty($old_applications)) {
+            foreach ($old_applications as $a_key => $application) {
 
                 // Application Clone start
                 $application_array = $application->replicate()->toArray();
@@ -303,8 +297,8 @@ class EnrollmentController extends Controller
 
                 // Application Program Clone start
                 $application_program_array = [];
-                $application_program = ApplicationProgram::where('application_id',$application->id)->get();
-                foreach($application_program as $app_prog_key => $app_prog_value){
+                $application_program = ApplicationProgram::where('application_id', $application->id)->get();
+                foreach ($application_program as $app_prog_key => $app_prog_value) {
                     $app_prog_array = $app_prog_value->replicate()->toArray();
 
                     $app_prog_array['application_id'] = $application_id;
@@ -316,7 +310,7 @@ class EnrollmentController extends Controller
                 // Application Program Clone end
 
                 // Application Configuration Clone start
-                $applciation_config = ApplicationConfiguration::where('application_id',$application->id)->first();
+                $applciation_config = ApplicationConfiguration::where('application_id', $application->id)->first();
                 $app_config_array = $applciation_config->replicate()->toArray();
                 $app_config_array['application_id'] = $application_id;
 
@@ -325,12 +319,12 @@ class EnrollmentController extends Controller
             }
         }
 
-        $new_applications = Application::where('district_id',session('district_id'))->where('enrollment_id',$enroll_id)->get();        
-        foreach($old_applications as $a_key=>$a_value){
+        $new_applications = Application::where('district_id', session('district_id'))->where('enrollment_id', $enroll_id)->get();
+        foreach ($old_applications as $a_key => $a_value) {
             $old_application_id[] = $a_value->id;
         }
 
-        foreach($new_applications as $n_key=>$n_value1){
+        foreach ($new_applications as $n_key => $n_value1) {
             $new_application_id[] = $n_value1->id;
         }
 
@@ -339,29 +333,29 @@ class EnrollmentController extends Controller
         return $application_ids;
     }
 
-    public function createProgram($enroll_id,$last_enroll_id,$priority_ids_by_key_value)
+    public function createProgram($enroll_id, $last_enroll_id, $priority_ids_by_key_value)
     {
 
 
         $old_program_id = $new_program_id = $program_ids = [];
         $old_programs = Program::where("enrollment_id", $last_enroll_id)->where("district_id", session("district_id"))->get();
-        
+
         foreach ($old_programs as $key => $program) {
-            
+
             $program_array = $program->replicate()->toArray();
             $program_array['enrollment_id'] = $enroll_id;
             $program_array['priority'] = $priority_ids_by_key_value[$program->priority] ?? null;
-          //  print_r($program_array);
+            //  print_r($program_array);
             $result = Program::create($program_array);
         }
-       // exit;
+        // exit;
 
         $new_programs = Program::where("enrollment_id", $enroll_id)->where("district_id", session("district_id"))->get();
-        foreach($old_programs as $p_key=>$p_value){
+        foreach ($old_programs as $p_key => $p_value) {
             $old_program_id[] = $p_value->id;
         }
 
-        foreach($new_programs as $n_key=>$n_value1){
+        foreach ($new_programs as $n_key => $n_value1) {
             $new_program_id[] = $n_value1->id;
         }
 
@@ -370,7 +364,7 @@ class EnrollmentController extends Controller
         return $program_ids;
     }
 
-    public function createPriority($enroll_id,$last_enroll_id)
+    public function createPriority($enroll_id, $last_enroll_id)
     {
 
         $old_priority_id = $new_priority_id = $priority_ids = [];
@@ -384,7 +378,7 @@ class EnrollmentController extends Controller
             print_r($priority_array);
             $priority_id = Priority::create($priority_array)->id;
 
-            $priorityDetails = PriorityDetail::where('priority_id',$priority->id)->get();
+            $priorityDetails = PriorityDetail::where('priority_id', $priority->id)->get();
             $priority_detail_create_array = [];
 
             foreach ($priorityDetails as $key => $priority_detail) {
@@ -393,20 +387,20 @@ class EnrollmentController extends Controller
                 $priority_detail_create_array[] = $priority_detail_array;
             }
 
-//dd($priority_detail_create_array);
+            //dd($priority_detail_create_array);
             PriorityDetail::insert($priority_detail_create_array);
         }
 
 
         $new_priorities = Priority::where('district_id', session('district_id'))->where('status', '!=', 'T')->where('enrollment_id', $enroll_id)->get();
-        foreach($old_priorities as $p_key=>$p_value){
+        foreach ($old_priorities as $p_key => $p_value) {
             $old_priority_id[] = $p_value->id;
         }
 
-        foreach($new_priorities as $n_key=>$n_value){
+        foreach ($new_priorities as $n_key => $n_value) {
             $new_priority_id[] = $n_value->id;
         }
-//dd($old_priority_id, $new_priority_id);
+        //dd($old_priority_id, $new_priority_id);
         $priority_ids = array_combine($old_priority_id, $new_priority_id);
         return $priority_ids;
     }
@@ -415,26 +409,21 @@ class EnrollmentController extends Controller
     public function edit($id)
     {
         $schools = School::where("status", "Y")->get(['id', 'name', 'grade_id']);
-        
+
         $school_data = [];
-        foreach($schools as $key=>$value)
-        {
+        foreach ($schools as $key => $value) {
             $tmp = [];
             $tmp['id'] = $value->id;
             $tmp['name'] = $value->name;
             $grades = explode(",", $value->grade_id);
             $grade_data = [];
-            foreach($grades as $k=>$gval)
-            {
+            foreach ($grades as $k => $gval) {
                 $rs = ADMData::where("enrollment_id", $id)->where("school_id", $value->id)->where("grade", $gval)->first();
                 $tmpgrade = [];
                 $tmpgrade['grade'] = $gval;
-                if(!empty($rs))
-                {
+                if (!empty($rs)) {
                     $tmpgrade['total'] = $rs->total;
-                }
-                else
-                {
+                } else {
                     $tmpgrade['total']  = '';
                 }
                 $grade_data[] = $tmpgrade;
@@ -446,9 +435,9 @@ class EnrollmentController extends Controller
 
         $enrollment = Enrollment::where('id', $id)->first();
 
-        $enrollment_racial = EnrollmentRaceComposition::where('enrollment_id',$id)->first();
-        if(isset($enrollment)){
-            return view('Enrollment::edit', compact('enrollment', 'schools', 'school_data', 'enrollment_racial'));    
+        $enrollment_racial = EnrollmentRaceComposition::where('enrollment_id', $id)->first();
+        if (isset($enrollment)) {
+            return view('Enrollment::edit', compact('enrollment', 'schools', 'school_data', 'enrollment_racial'));
         }
         return redirect('admin/Enrollment');
 
@@ -467,7 +456,7 @@ class EnrollmentController extends Controller
         $this->validate($request, $validation->rules, $validation->messages);
 
         // Selecting value for import_grades_by
-        switch($request->import_grades_by){
+        switch ($request->import_grades_by) {
             case 'submission_date':
                 $request['import_grades_by'] = 'SD';
                 break;
@@ -484,19 +473,15 @@ class EnrollmentController extends Controller
 
             $curr_timestamp = date('Y-m-d H:i:s');
             foreach ($adm_data as $key => $value) {
-                    $grades = $request->grade[$value];
-                    foreach($grades as $gk=>$gv)
-                    {
-                        $tmp = [];
-                        $tmp['school_id'] = $value;
-                        $tmp['grade'] = $gv;               
-                        $tmp['total'] = $request->total[$value][$gv]; 
-                        $tmp['enrollment_id'] = $id;
-                        ADMData::insert($tmp);
-
-                    }
-                   
-
+                $grades = $request->grade[$value];
+                foreach ($grades as $gk => $gv) {
+                    $tmp = [];
+                    $tmp['school_id'] = $value;
+                    $tmp['grade'] = $gv;
+                    $tmp['total'] = $request->total[$value][$gv];
+                    $tmp['enrollment_id'] = $id;
+                    ADMData::insert($tmp);
+                }
             }
         }
         unset($request['adm_data']);
@@ -523,37 +508,33 @@ class EnrollmentController extends Controller
             ->update($req);
         $newObj = Enrollment::where('id', $id)->first();
 
-        if(isset($request->racial)){
+        if (isset($request->racial)) {
             $racial_composition = $request->racial;
             $racial_composition['enrollment_id'] = $id;
 
-            
+
             $racial_data = EnrollmentRaceComposition::updateOrCreate(['enrollment_id' => $id], $racial_composition);
-
-        }   
-
+        }
 
 
-        if(isset($update)){
-            $this->modelChanges($initObj,$newObj,"Enrollment");
+
+        if (isset($update)) {
+            $this->modelChanges($initObj, $newObj, "Enrollment");
             Session::flash('success', "Enrollment Period updated successfully.");
-            if($request->has('exit')){
+            if ($request->has('exit')) {
                 return redirect('admin/Enrollment');
             }
-        }else{
+        } else {
             Session::flash('success', "Enrollment Period not updated.");
             // return redirect('admin/Enrollment/edit/'.$id);
         }
-        if (isset($request->save_exit))
-        {
+        if (isset($request->save_exit)) {
             return redirect('admin/Enrollment');
-        }
-        else
-        {
+        } else {
             // return redirect()->back();
-            return redirect("admin/Enrollment/edit/".$id);
+            return redirect("admin/Enrollment/edit/" . $id);
         }
-        return redirect('admin/Enrollment/edit/'.$id);
+        return redirect('admin/Enrollment/edit/' . $id);
         // return redirect('admin/Enrollment');
     }
 
@@ -561,21 +542,21 @@ class EnrollmentController extends Controller
     {
         $update = Enrollment::where('id', $request->id)
             ->update(['status' => $request->status]);
-        if(isset($update)){
+        if (isset($update)) {
             return 'true';
         }
         return  'false';
     }
 
     public function trash()
-    {   
-        if(Session('district_id')==0){
+    {
+        if (Session('district_id') == 0) {
             $enrollments = Enrollment::where('status', 'T')
                 ->get();
-        }else{
+        } else {
             $enrollments = Enrollment::where('district_id', Session('district_id'))
                 ->where('status', 'T')
-                ->get();    
+                ->get();
         }
         return view('Enrollment::trash', compact('enrollments'));
     }
@@ -584,10 +565,9 @@ class EnrollmentController extends Controller
     {
         $delete = Enrollment::where('id', $id)
             ->update(['status' => 'T']);
-        if(isset($delete)){
-            Session()->flash('success', "Enrollment Period moved to trash successfully"); 
-        }
-        else{
+        if (isset($delete)) {
+            Session()->flash('success', "Enrollment Period moved to trash successfully");
+        } else {
             Session()->flash('error', "Enrollment Period not moved to trash.");
         }
         return redirect('admin/Enrollment');
@@ -597,10 +577,9 @@ class EnrollmentController extends Controller
     {
         $delete = Enrollment::where('id', $id)
             ->delete();
-        if(isset($delete)){
-            Session()->flash('success', "Enrollment Period deleted successfully"); 
-        }
-        else{
+        if (isset($delete)) {
+            Session()->flash('success', "Enrollment Period deleted successfully");
+        } else {
             Session()->flash('error', "Enrollment Period not deleted.");
         }
         return redirect('admin/Enrollment/trash');
@@ -610,10 +589,9 @@ class EnrollmentController extends Controller
     {
         $restore = Enrollment::where('id', $id)
             ->update(['status' => 'Y']);
-        if(isset($restore)){
-            Session()->flash('success', "Enrollment Period restored successfully."); 
-        }
-        else{
+        if (isset($restore)) {
+            Session()->flash('success', "Enrollment Period restored successfully.");
+        } else {
             Session()->flash('error', "Enrollment Period not restored.");
         }
         return redirect('admin/Enrollment/trash');

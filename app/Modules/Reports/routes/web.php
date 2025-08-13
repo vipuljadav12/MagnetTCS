@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/Reports','module' => 'Reports', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\Reports\Controllers'], function() {
 
     Route::get('/missing/{id}/grade', 'ReportsController@missingGradeMain');

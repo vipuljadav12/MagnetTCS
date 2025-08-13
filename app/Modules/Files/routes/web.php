@@ -1,6 +1,8 @@
 <?php
 
-Route::group(['prefix'=>'admin/Files', 'module' => 'Files', 'middleware' => ['web', 'auth'], 'namespace' => 'App\Modules\Files\Controllers'], function() {
+use Illuminate\Support\Facades\Route;
+
+Route::group(['prefix' => 'admin/Files', 'module' => 'Files', 'middleware' => ['web', 'auth'], 'namespace' => 'App\Modules\Files\Controllers'], function () {
 
 	Route::get('/', 'FilesController@index');
 	Route::get('/create', 'FilesController@create');
@@ -13,5 +15,4 @@ Route::group(['prefix'=>'admin/Files', 'module' => 'Files', 'middleware' => ['we
 
 	Route::get('/status_update', 'FilesController@statusUpdate');
 	Route::get('/unique_title', 'FilesController@uniqueTitle');
-
 });

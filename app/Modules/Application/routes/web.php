@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/Application','module' => 'Application', 'middleware' => ['web','auth','permission'], 'namespace' => 'App\Modules\Application\Controllers'], function() {
 
     Route::get('/', 'ApplicationController@index');

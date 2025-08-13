@@ -1,4 +1,7 @@
 <?php
+
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix' => 'admin/Permission','module' => 'Permission', 'middleware' => ['web','auth','super'], 'namespace' => 'App\Modules\Permission\Controllers'], function() {
 
 		Route::get('/', 'PermissionController@index');

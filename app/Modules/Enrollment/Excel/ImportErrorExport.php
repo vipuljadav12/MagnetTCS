@@ -34,7 +34,7 @@ class ImportErrorExport implements FromCollection, WithHeadings, ShouldAutoSize,
         //         $headings[] = ucwords(str_replace('_', ' ', $key));
         //     }
         // } else {
-            $headings = ['School ID', 'School Name', 'Black', 'White', 'Other'];
+        $headings = ['School ID', 'School Name', 'Black', 'White', 'Other'];
         // }
         return $headings;
     }

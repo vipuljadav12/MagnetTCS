@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/AlertMsg','module' => 'AlertMsg', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\AlertMsg\Controllers'], function() {
 
     Route::get('/', 'AlertMsgController@index');

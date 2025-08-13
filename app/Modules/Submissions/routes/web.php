@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/Submissions','module' => 'Submissions', 'middleware' => ['web','auth','permission'], 'namespace' => 'App\Modules\Submissions\Controllers'], function() {
 
     Route::get('/', 'SubmissionsController@index');

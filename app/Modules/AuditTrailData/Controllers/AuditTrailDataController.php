@@ -22,10 +22,10 @@ class AuditTrailDataController extends Controller
     public function index()
     {
         // $audit_trails = AuditTrailData::orderByDesc('created_at')->get();
-        $audit_trails["submission"] = AuditTrailData::where("module","LIKE","Submission%")->orderByDesc('created_at')->get();
-        $audit_trails["general"] = AuditTrailData::where("module","NOT LIKE","Submission%")->orderByDesc('created_at')->get();
+        $audit_trails["submission"] = AuditTrailData::where("module", "LIKE", "Submission%")->orderByDesc('created_at')->get();
+        $audit_trails["general"] = AuditTrailData::where("module", "NOT LIKE", "Submission%")->orderByDesc('created_at')->get();
         // return $audit_trails;
-        return view("AuditTrailData::admin.index",compact("audit_trails"));
+        return view("AuditTrailData::admin.index", compact("audit_trails"));
     }
 
     /**

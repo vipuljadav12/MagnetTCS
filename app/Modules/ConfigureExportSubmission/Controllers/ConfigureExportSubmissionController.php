@@ -5,7 +5,7 @@ namespace App\Modules\ConfigureExportSubmission\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\DistrictConfiguration\Models\DistrictConfiguration;
-use Session;
+use Illuminate\Support\Facades\Session;
 
 class ConfigureExportSubmissionController extends Controller
 {
@@ -35,10 +35,11 @@ class ConfigureExportSubmissionController extends Controller
             'name' => 'submission_export_fields'
         ];
 
-        if( isset($request->fields) && !empty($request->fields) ) {
+        if (isset($request->fields) && !empty($request->fields)) {
             $value = json_encode($request->fields);
             $result = DistrictConfiguration::updateOrCreate(
-                $match_ary, [ 'value' => $value ]
+                $match_ary,
+                ['value' => $value]
             );
         } else {
             $result = DistrictConfiguration::where($match_ary)->delete();
@@ -51,5 +52,4 @@ class ConfigureExportSubmissionController extends Controller
         }
         return redirect($module_base);
     }
-   
 }

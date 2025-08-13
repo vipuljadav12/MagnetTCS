@@ -2,37 +2,39 @@
 
 namespace App\Http\Controllers\admin;
 
-use Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Enrollment\Models\Enrollment;
 use App\Modules\Application\Models\ApplicationPragram;
 use App\Modules\Application\Models\Application;
-use App\Modules\Submissions\Models\{Submissions,SubmissionsFinalStatus,SubmissionsWaitlistFinalStatus,LateSubmissionFinalStatus};
-use App\Modules\ProcessSelection\Models\{ProgramSwingData,PreliminaryScore,ProcessSelection};
+use App\Modules\Submissions\Models\{Submissions, SubmissionsFinalStatus, SubmissionsWaitlistFinalStatus, LateSubmissionFinalStatus};
+use App\Modules\ProcessSelection\Models\{ProgramSwingData, PreliminaryScore, ProcessSelection};
 use App\Modules\Submissions\Models\SubmissionSteps;
 use App\Modules\Program\Models\Program;
-// use App\Modules\Form\Models\Form;
-
 use App\Modules\Application\Models\ApplicationProgram;
 use App\Modules\SetAvailability\Models\Availability;
-
 use App\User;
 use App\Tenant;
-use DB;
-use Session;
-use App\Modules\Waitlist\Models\{WaitlistController,WaitlistProcessLogs,WaitlistAvailabilityLog,WaitlistAvailabilityProcessLog};
-
-
-//use Session;
+use App\Modules\Waitlist\Models\{WaitlistController, WaitlistProcessLogs, WaitlistAvailabilityLog, WaitlistAvailabilityProcessLog};
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Session;
 
 class AdminController extends Controller
 {
+    public $program;
+    public $submission;
+    public $user;
+    public $enrollment;
+    public $application;
+    public $application_program;
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct(){
+    public function __construct()
+    {
         $this->middleware('auth');
         // $this->school = new School();
         // $this->form = new Form();
@@ -55,12 +57,12 @@ class AdminController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index(){
+    public function index()
+    {
         $district_id = Session('district_id');
         $applications_data = $this->application::where('district_id', $district_id)->where("starting_date", "<=", date("Y-m-d H:i:s"))->where("ending_date", ">=", date("Y-m-d H:i:s"))->where("enrollment_id", Session::get("enrollment_id"))->get();
         $application_arr = [];
-        foreach($applications_data as $key=>$value)
-        {
+        foreach ($applications_data as $key => $value) {
             $application_arr[] = $value->id;
         }
 
@@ -81,12 +83,12 @@ class AdminController extends Controller
                     $data['total_applicants_per_enrollment_period'] = $this->submission::whereIn('application_id', $applications->pluck('id'))->count();
 
                     $data['total_applicants_per_application_period'] = $submissions->count();
-                    
+
 
                     // Total Number of Current and Noncurrent Students Per Application Period
                     $data['total_noncurrent_students_per_application_period'] = $submissions->where('student_id', '')->whereIn("application_id", $application_arr)
                         ->count();
-                    $data['total_current_students_per_application_period'] = $data['total_applicants_per_application_period'] - $data['total_noncurrent_students_per_application_period']; 
+                    $data['total_current_students_per_application_period'] = $data['total_applicants_per_application_period'] - $data['total_noncurrent_students_per_application_period'];
 
                     // Submission Status
                     $data['active_submissions'] = $submissions->where('submission_status', 'Active')->count();
@@ -100,7 +102,7 @@ class AdminController extends Controller
         }
         $submissions = [];
         $submissions1 = $this->submission::where('district_id', $district_id)
-             ->where('enrollment_id', Session::get("enrollment_id"))
+            ->where('enrollment_id', Session::get("enrollment_id"))
             // ->where('second_choice', '!=', '')
             ->distinct('first_choice')
             // ->distinct('second_choice')
@@ -112,55 +114,52 @@ class AdminController extends Controller
             ->where('enrollment_id', Session::get("enrollment_id"))
             ->distinct('second_choice')
             ->get(['first_choice', 'second_choice', 'next_grade']);
-        
+
         // return $submissions;
 
         // if (!empty($submissions)) {
-            // $programs_by_firstchoice = [];
-            // $programs_by_secondchoice = [];
-            $submission_by_programs = [];
-            $first_choice = [];
-            if (!empty($submissions1)) {
-                $first_choice = $submissions1->pluck('first_choice');
-            }
-            // return $first_choice;
-            $second_choice = [];
-            if (!empty($submissions2)) {
-                $second_choice = $submissions2->pluck('second_choice');
-            }
-            $all_choices = $first_choice->merge($second_choice);
-            $application_programs = $this->application_program::whereIn('application_programs.id', $all_choices)->join("program", "program.id", "application_programs.program_id")->where('program.enrollment_id', Session::get("enrollment_id"))->orderBy("program.id")->orderBy("program.name")->get(['application_programs.id', 'program_id']);
+        // $programs_by_firstchoice = [];
+        // $programs_by_secondchoice = [];
+        $submission_by_programs = [];
+        $first_choice = [];
+        if (!empty($submissions1)) {
+            $first_choice = $submissions1->pluck('first_choice');
+        }
+        // return $first_choice;
+        $second_choice = [];
+        if (!empty($submissions2)) {
+            $second_choice = $submissions2->pluck('second_choice');
+        }
+        $all_choices = $first_choice->merge($second_choice);
+        $application_programs = $this->application_program::whereIn('application_programs.id', $all_choices)->join("program", "program.id", "application_programs.program_id")->where('program.enrollment_id', Session::get("enrollment_id"))->orderBy("program.id")->orderBy("program.name")->get(['application_programs.id', 'program_id']);
 
-            //$application_programs = $this->application_program::whereIn('id', $all_choices)->get(['id', 'program_id']);
-            // Group choice_id by program
-            if (!empty($application_programs)) {
-                foreach ($application_programs as $key => $value) {
-                    if (!isset($submission_by_programs[$value->program_id])) {
-                        $submission_by_programs[$value->program_id] = [];
-                    }
-                    array_push($submission_by_programs[$value->program_id], $value->id);
+        //$application_programs = $this->application_program::whereIn('id', $all_choices)->get(['id', 'program_id']);
+        // Group choice_id by program
+        if (!empty($application_programs)) {
+            foreach ($application_programs as $key => $value) {
+                if (!isset($submission_by_programs[$value->program_id])) {
+                    $submission_by_programs[$value->program_id] = [];
                 }
+                array_push($submission_by_programs[$value->program_id], $value->id);
             }
-            // return $submission_by_programs;
-            $data['all_grades'] = \DB::table('grade')->get();
-            $data['first_choice_grade_count'] = $this->getGradeCount('first_choice', $submission_by_programs, $district_id);
-            $data['second_choice_grade_count'] = $this->getGradeCount('second_choice', $submission_by_programs, $district_id);
+        }
+        // return $submission_by_programs;
+        $data['all_grades'] = DB::table('grade')->get();
+        $data['first_choice_grade_count'] = $this->getGradeCount('first_choice', $submission_by_programs, $district_id);
+        $data['second_choice_grade_count'] = $this->getGradeCount('second_choice', $submission_by_programs, $district_id);
         // }
-        
+
         // Number of Applicants Per Home Zone School
-        $zoned_submissions = $this->submission::where('district_id', $district_id)->where('enrollment_id', Session::get("enrollment_id"))->get(['current_school', 'next_grade','student_id']);
+        $zoned_submissions = $this->submission::where('district_id', $district_id)->where('enrollment_id', Session::get("enrollment_id"))->get(['current_school', 'next_grade', 'student_id']);
         $data['zoned_school'] = [];
         foreach ($zoned_submissions as $key => $value) {
             // trim string after '(' bracket
-            if($value->student_id == '')
-            {
+            if ($value->student_id == '') {
                 if (!isset($data['zoned_school']['Non TCS Schools'][$value->next_grade])) {
                     $data['zoned_school']['Non TCS Schools'][$value->next_grade] = 0;
                 }
                 $data['zoned_school']['Non TCS Schools'][$value->next_grade] = $data['zoned_school']['Non TCS Schools'][$value->next_grade] + 1;
-            }
-            elseif($value->current_school != '')
-            {
+            } elseif ($value->current_school != '') {
                 $value->zoned_school = substr($value->current_school, 0, strpos($value->current_school, '('));
                 if (isset($value->current_school) && isset($value->next_grade)) {
                     if (!isset($data['zoned_school'][$value->current_school][$value->next_grade])) {
@@ -171,7 +170,7 @@ class AdminController extends Controller
             }
         }
 
-       
+
         // comp
         // return $this->application_program::join('submissions as FS', function($join) use ($district_id){
         //     $join->on('application_programs.id', '=', 'FS.first_choice')
@@ -191,25 +190,25 @@ class AdminController extends Controller
     {
         $data = DB::table("short_code_list")->get();
         $arr = array();
-        foreach($data as $value)
-        {
+        foreach ($data as $value) {
             $arr[] = $value->short_code_text;
         }
         return $arr;
     }
 
-    public function getGradeCount($choice, $submission_by_programs, $district_id) {
+    public function getGradeCount($choice, $submission_by_programs, $district_id)
+    {
         // Calculating grade data based on program
         $grade_count = [];
         foreach ($submission_by_programs as $program_id => $value) {
             $choice_submissions = $this->submission::where('district_id', $district_id)
                 ->whereIn($choice, $value)
-                ->get(['next_grade']); 
+                ->get(['next_grade']);
             foreach ($choice_submissions as $key => $value2) {
                 if (!isset($grade_count[$program_id][$value2->next_grade])) {
                     $grade_count[$program_id][$value2->next_grade] = 0;
                 }
-                $grade_count[$program_id][$value2->next_grade] = $grade_count[$program_id][$value2->next_grade] + 1; 
+                $grade_count[$program_id][$value2->next_grade] = $grade_count[$program_id][$value2->next_grade] + 1;
             }
         }
         return $grade_count;
@@ -218,34 +217,31 @@ class AdminController extends Controller
     public function changedistrict($district_id)
     {
         $tenant = Tenant::where("id", $district_id)->first();
-        if(!$tenant)
-        {
-            
+        if (!$tenant) {
+
             Session::put("district_id", "0");
             Session::put("theme_color", "#00346b");
-        }
-        else
-        {
+        } else {
             Session::put("district_id", $tenant->id);
             Session::put("theme_color", $tenant->theme_color);
             date_default_timezone_set($tenant->district_timezone);
         }
 
         $enrollments = Enrollment::where('district_id', Session::get('district_id'))
-                        ->where('status', 'Y')
-                        ->where('begning_date','<',date('Y-m-d'))
-                        ->where('ending_date','>',date('Y-m-d'))
-                        ->orderBy('created_at','desc')
-                        ->first();
+            ->where('status', 'Y')
+            ->where('begning_date', '<', date('Y-m-d'))
+            ->where('ending_date', '>', date('Y-m-d'))
+            ->orderBy('created_at', 'desc')
+            ->first();
 
-        if(!isset($enrollments) && empty($enrollments)){
+        if (!isset($enrollments) && empty($enrollments)) {
             $enrollments = Enrollment::where('district_id', Session::get('district_id'))
-                        ->where('status', 'Y')
-                        ->orderBy('created_at','desc')
-                        ->first();
+                ->where('status', 'Y')
+                ->orderBy('created_at', 'desc')
+                ->first();
         }
-        
-        if(isset($enrollments)){
+
+        if (isset($enrollments)) {
             Session::put('enrollment_id', $enrollments->id);
         }
 
@@ -254,19 +250,19 @@ class AdminController extends Controller
         echo "done";
     }
 
-        
+
     public function changedEnrollment($enrollment_id)
     {
-        $enrollments = Enrollment::where('id',$enrollment_id)->first();
+        $enrollments = Enrollment::where('id', $enrollment_id)->first();
 
-        if(isset($enrollments)){
-            Session::put('enrollment_id',$enrollments->id);
+        if (isset($enrollments)) {
+            Session::put('enrollment_id', $enrollments->id);
         }
 
         echo "done";
     }
     /* Super Admin Offer Dashboard */
-    
+
 
 
     /* Super Admin Offer Dashboard */
@@ -279,335 +275,252 @@ class AdminController extends Controller
         $OfferedWaitlisted = $this->superOfferWaitlistedChart($version, $program_id, 1);
         $OfferedDeclined = $this->superOfferDeclinedChart($version, $program_id, 1);
         $OfferedAccepted = $this->superOfferAcceptedChart($version, $program_id, 1);
-        return view('layouts.admin.dashboard_super_admin_offer', compact("programs", "OfferedWaitlisted", "OfferedDeclined", "OfferedAccepted", "program_id", "version","versions_lists"));
-
+        return view('layouts.admin.dashboard_super_admin_offer', compact("programs", "OfferedWaitlisted", "OfferedDeclined", "OfferedAccepted", "program_id", "version", "versions_lists"));
     }
 
-    public function superOfferAcceptedChart($version, $program_id, $return=0)
+    public function superOfferAcceptedChart($version, $program_id, $return = 0)
     {
         /* Get Offered Count */
 
-        if($version  == 0)
-        {
-            $first_offer = SubmissionsFinalStatus::all()->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Accepted')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->first_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $first_offer_update_at) {
+        if ($version  == 0) {
+            $first_offer = SubmissionsFinalStatus::all()->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Accepted')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->first_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $first_offer_update_at) {
                     return date('Y-m-d', strtotime($first_offer_update_at));
                 });
 
-           // print_r($first_offer);exit;
-            $second_offer = SubmissionsFinalStatus::all()->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Accepted')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->second_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $second_offer_update_at) {
+            // print_r($first_offer);exit;
+            $second_offer = SubmissionsFinalStatus::all()->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Accepted')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->second_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $second_offer_update_at) {
                     return date('Y-m-d', strtotime($second_offer_update_at));
                 });
-        }
-        else
-        {
-            $first_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Accepted')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->first_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $first_offer_update_at) {
+        } else {
+            $first_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Accepted')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->first_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $first_offer_update_at) {
                     return date('Y-m-d', strtotime($first_offer_update_at));
                 });
 
-           // print_r($first_offer);exit;
-            $second_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Accepted')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->second_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $second_offer_update_at) {
+            // print_r($first_offer);exit;
+            $second_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Accepted')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->second_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $second_offer_update_at) {
                     return date('Y-m-d', strtotime($second_offer_update_at));
                 });
-
         }
         $OfferedAccepted = array();
-        foreach($first_offer as $key=>$value)
-        {
+        foreach ($first_offer as $key => $value) {
             //echo $key. " - ".count($value)."<BR>";
-            if($version == 0)
-            {
+            if ($version == 0) {
 
-                if(date("m", strtotime($key)) == 12)
-                {
-                    if(isset($OfferedAccepted[date("d", strtotime($key))]))
-                    {
+                if (date("m", strtotime($key)) == 12) {
+                    if (isset($OfferedAccepted[date("d", strtotime($key))])) {
                         $OfferedAccepted[date("d", strtotime($key))] = $OfferedAccepted[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedAccepted[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedAccepted[date("d", strtotime($key))] = count($value);
                     }
                 }
-            }
-            else
-            {
-                if(date("M") == date("M", strtotime($key)))
-                {
-                    if(isset($OfferedAccepted[date("d", strtotime($key))]))
-                    {
+            } else {
+                if (date("M") == date("M", strtotime($key))) {
+                    if (isset($OfferedAccepted[date("d", strtotime($key))])) {
                         $OfferedAccepted[date("d", strtotime($key))] = $OfferedAccepted[date("d", strtotime($key))] + cont($value);
-                    }
-                    else
-                    {
-                        $OfferedAccepted[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedAccepted[date("d", strtotime($key))] = count($value);
                     }
                 }
             }
-        } 
+        }
 
-        foreach($second_offer as $key=>$value)
-        {
-            if($version == 0)
-            {
-                if(date("m", strtotime($key)) == 12)
-                {
-                    if(isset($OfferedAccepted[date("d", strtotime($key))]))
-                    {
+        foreach ($second_offer as $key => $value) {
+            if ($version == 0) {
+                if (date("m", strtotime($key)) == 12) {
+                    if (isset($OfferedAccepted[date("d", strtotime($key))])) {
                         $OfferedAccepted[date("d", strtotime($key))] = $OfferedAccepted[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedAccepted[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedAccepted[date("d", strtotime($key))] = count($value);
                     }
                 }
-            }
-            else
-            {
-                if(date("M") == date("M", strtotime($key)))
-                {
-                    if(isset($OfferedAccepted[date("d", strtotime($key))]))
-                    {
+            } else {
+                if (date("M") == date("M", strtotime($key))) {
+                    if (isset($OfferedAccepted[date("d", strtotime($key))])) {
                         $OfferedAccepted[date("d", strtotime($key))] = $OfferedAccepted[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedAccepted[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedAccepted[date("d", strtotime($key))] = count($value);
                     }
                 }
             }
-        } 
+        }
 
 
-        if($return == 0)
+        if ($return == 0)
             return json_encode($OfferedAccepted);
         else
             return $OfferedAccepted;
     }
-    public function superOfferDeclinedChart($version, $program_id, $return=0)
+    public function superOfferDeclinedChart($version, $program_id, $return = 0)
     {
 
-         /* Get Declined Offer Count */
-                    /* Get Offered Count */
-        if($version == 0)
-        {
-            $first_offer = SubmissionsFinalStatus::all()->where('first_offer_status', 'Declined')->where("enrollment_id", Session::get("enrollment_id"))->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->first_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $first_offer_update_at) {
+        /* Get Declined Offer Count */
+        /* Get Offered Count */
+        if ($version == 0) {
+            $first_offer = SubmissionsFinalStatus::all()->where('first_offer_status', 'Declined')->where("enrollment_id", Session::get("enrollment_id"))->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->first_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $first_offer_update_at) {
                     return date('Y-m-d', strtotime($first_offer_update_at));
                 });
 
-            $second_offer = SubmissionsFinalStatus::all()->where('second_offer_status', 'Declined')->where("enrollment_id", Session::get("enrollment_id"))->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->second_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $second_offer_update_at) {
+            $second_offer = SubmissionsFinalStatus::all()->where('second_offer_status', 'Declined')->where("enrollment_id", Session::get("enrollment_id"))->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->second_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $second_offer_update_at) {
                     return date('Y-m-d', strtotime($second_offer_update_at));
                 });
-        }
-        else
-        {
-            $first_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Declined')->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->first_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $first_offer_update_at) {
+        } else {
+            $first_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Declined')->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->first_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $first_offer_update_at) {
                     return date('Y-m-d', strtotime($first_offer_update_at));
                 });
 
-            $second_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Declined')->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->second_offer_update_at)); 
-                })
-                ->sortByDesc(function($item, $second_offer_update_at) {
+            $second_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Declined')->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->second_offer_update_at));
+            })
+                ->sortByDesc(function ($item, $second_offer_update_at) {
                     return date('Y-m-d', strtotime($second_offer_update_at));
                 });
         }
         $OfferedDeclined = array();
-        foreach($first_offer as $key=>$value)
-        {
-            if($version == 0)
-            {
+        foreach ($first_offer as $key => $value) {
+            if ($version == 0) {
 
-                if(date("m", strtotime($key)) == 12)
-                {
-                    if(isset($OfferedDeclined[date("d", strtotime($key))]))
-                    {
+                if (date("m", strtotime($key)) == 12) {
+                    if (isset($OfferedDeclined[date("d", strtotime($key))])) {
                         $OfferedDeclined[date("d", strtotime($key))] = $OfferedDeclined[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedDeclined[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedDeclined[date("d", strtotime($key))] = count($value);
                     }
                 }
-            }
-            else
-            {
-                if(date("M") == date("M", strtotime($key)))
-                {
-                    if(isset($OfferedDeclined[date("d", strtotime($key))]))
-                    {
+            } else {
+                if (date("M") == date("M", strtotime($key))) {
+                    if (isset($OfferedDeclined[date("d", strtotime($key))])) {
                         $OfferedDeclined[date("d", strtotime($key))] = $OfferedDeclined[date("d", strtotime($key))] + 1;
-                    }
-                    else
-                    {
-                        $OfferedDeclined[date("d", strtotime($key))] = 1;   
-                    }
-                }
-            }
-        } 
-
-        foreach($second_offer as $key=>$value)
-        {
-            if($version == 0)
-            {
-
-                if(date("m", strtotime($key)) == 12)
-                {
-                    if(isset($OfferedDeclined[date("d", strtotime($key))]))
-                    {
-                        $OfferedDeclined[date("d", strtotime($key))] = $OfferedDeclined[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedDeclined[date("d", strtotime($key))] = count($value);   
-                    }
-                }
-            }
-            else
-            {
-                if(date("M") == date("M", strtotime($key)))
-                {
-                    if(isset($OfferedDeclined[date("d", strtotime($key))]))
-                    {
-                        $OfferedDeclined[date("d", strtotime($key))] = $OfferedDeclined[date("d", strtotime($key))] + 1;
-                    }
-                    else
-                    {
-                        $OfferedDeclined[date("d", strtotime($key))] = 1;   
+                    } else {
+                        $OfferedDeclined[date("d", strtotime($key))] = 1;
                     }
                 }
             }
         }
-        if($return == 0)
+
+        foreach ($second_offer as $key => $value) {
+            if ($version == 0) {
+
+                if (date("m", strtotime($key)) == 12) {
+                    if (isset($OfferedDeclined[date("d", strtotime($key))])) {
+                        $OfferedDeclined[date("d", strtotime($key))] = $OfferedDeclined[date("d", strtotime($key))] + count($value);
+                    } else {
+                        $OfferedDeclined[date("d", strtotime($key))] = count($value);
+                    }
+                }
+            } else {
+                if (date("M") == date("M", strtotime($key))) {
+                    if (isset($OfferedDeclined[date("d", strtotime($key))])) {
+                        $OfferedDeclined[date("d", strtotime($key))] = $OfferedDeclined[date("d", strtotime($key))] + 1;
+                    } else {
+                        $OfferedDeclined[date("d", strtotime($key))] = 1;
+                    }
+                }
+            }
+        }
+        if ($return == 0)
             return json_encode($OfferedDeclined);
         else
             return $OfferedDeclined;
     }
-    public function superOfferWaitlistedChart($version, $program_id, $return=0)
+    public function superOfferWaitlistedChart($version, $program_id, $return = 0)
     {
 
-          /* Get Waitlisted Offer Count */
-                    /* Get Offered Count */
-        if($version == 0)
-        {
-            $first_offer = SubmissionsFinalStatus::all()->where('first_offer_status', 'Declined & Waitlisted')->where("enrollment_id", Session::get("enrollment_id"))->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->first_offer_update_at)); 
-                })
-                ->sortBy(function($item, $first_offer_update_at) {
+        /* Get Waitlisted Offer Count */
+        /* Get Offered Count */
+        if ($version == 0) {
+            $first_offer = SubmissionsFinalStatus::all()->where('first_offer_status', 'Declined & Waitlisted')->where("enrollment_id", Session::get("enrollment_id"))->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->first_offer_update_at));
+            })
+                ->sortBy(function ($item, $first_offer_update_at) {
                     return date('Y-m-d', strtotime($first_offer_update_at));
                 });
 
-            $second_offer = SubmissionsFinalStatus::all()->where('second_offer_status', 'Declined & Waitlisted')->where("enrollment_id", Session::get("enrollment_id"))->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->second_offer_update_at)); 
-                })
-                ->sortBy(function($item, $second_offer_update_at) {
+            $second_offer = SubmissionsFinalStatus::all()->where('second_offer_status', 'Declined & Waitlisted')->where("enrollment_id", Session::get("enrollment_id"))->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->second_offer_update_at));
+            })
+                ->sortBy(function ($item, $second_offer_update_at) {
                     return date('Y-m-d', strtotime($second_offer_update_at));
                 });
-        }
-        else
-        {
-            $first_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Declined & Waitlisted')->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->first_offer_update_at)); 
-                })
-                ->sortBy(function($item, $first_offer_update_at) {
+        } else {
+            $first_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('first_offer_status', 'Declined & Waitlisted')->where('first_choice_final_status', 'Offered')->where('first_waitlist_for', $program_id)->where("first_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->first_offer_update_at));
+            })
+                ->sortBy(function ($item, $first_offer_update_at) {
                     return date('Y-m-d', strtotime($first_offer_update_at));
                 });
 
-            $second_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Declined & Waitlisted')->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function($item) { 
-                    return date('Y-m-d', strtotime($item->second_offer_update_at)); 
-                })
-                ->sortBy(function($item, $second_offer_update_at) {
+            $second_offer = SubmissionsWaitlistFinalStatus::all()->where("version", $version)->where("enrollment_id", Session::get("enrollment_id"))->where('second_offer_status', 'Declined & Waitlisted')->where('second_choice_final_status', 'Offered')->where('second_waitlist_for', $program_id)->where("second_offer_update_at", '<>', '')->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->second_offer_update_at));
+            })
+                ->sortBy(function ($item, $second_offer_update_at) {
                     return date('Y-m-d', strtotime($second_offer_update_at));
                 });
         }
 
         $OfferedWaitlisted = array();
-        foreach($first_offer as $key=>$value)
-        {
-            if($version == 0)
-            {
+        foreach ($first_offer as $key => $value) {
+            if ($version == 0) {
 
-                if(date("m", strtotime($key)) == 12)
-                {
-                    if(isset($OfferedWaitlisted[date("d", strtotime($key))]))
-                    {
+                if (date("m", strtotime($key)) == 12) {
+                    if (isset($OfferedWaitlisted[date("d", strtotime($key))])) {
                         $OfferedWaitlisted[date("d", strtotime($key))] = $OfferedWaitlisted[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedWaitlisted[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedWaitlisted[date("d", strtotime($key))] = count($value);
                     }
                 }
-            }
-            else
-            {
-                if(date("M") == date("M", strtotime($key)))
-                {
-                    if(isset($OfferedWaitlisted[date("d", strtotime($key))]))
-                    {
+            } else {
+                if (date("M") == date("M", strtotime($key))) {
+                    if (isset($OfferedWaitlisted[date("d", strtotime($key))])) {
                         $OfferedWaitlisted[date("d", strtotime($key))] = $OfferedWaitlisted[date("d", strtotime($key))] + 1;
-                    }
-                    else
-                    {
-                        $OfferedWaitlisted[date("d", strtotime($key))] = 1;   
+                    } else {
+                        $OfferedWaitlisted[date("d", strtotime($key))] = 1;
                     }
                 }
             }
-        } 
+        }
 
-        foreach($second_offer as $key=>$value)
-        {
-            if($version == 0)
-            {
+        foreach ($second_offer as $key => $value) {
+            if ($version == 0) {
 
-                if(date("m", strtotime($key)) == 12)
-                {
-                    if(isset($OfferedWaitlisted[date("d", strtotime($key))]))
-                    {
+                if (date("m", strtotime($key)) == 12) {
+                    if (isset($OfferedWaitlisted[date("d", strtotime($key))])) {
                         $OfferedWaitlisted[date("d", strtotime($key))] = $OfferedWaitlisted[date("d", strtotime($key))] + count($value);
-                    }
-                    else
-                    {
-                        $OfferedWaitlisted[date("d", strtotime($key))] = count($value);   
+                    } else {
+                        $OfferedWaitlisted[date("d", strtotime($key))] = count($value);
                     }
                 }
-            }
-            else
-            {
-                if(date("M") == date("M", strtotime($key)))
-                {
-                    if(isset($OfferedWaitlisted[date("d", strtotime($key))]))
-                    {
+            } else {
+                if (date("M") == date("M", strtotime($key))) {
+                    if (isset($OfferedWaitlisted[date("d", strtotime($key))])) {
                         $OfferedWaitlisted[date("d", strtotime($key))] = $OfferedWaitlisted[date("d", strtotime($key))] + 1;
-                    }
-                    else
-                    {
-                        $OfferedWaitlisted[date("d", strtotime($key))] = 1;   
+                    } else {
+                        $OfferedWaitlisted[date("d", strtotime($key))] = 1;
                     }
                 }
             }
-        } 
-        if($return == 0)
+        }
+        if ($return == 0)
             return json_encode($OfferedWaitlisted);
         else
             return $OfferedWaitlisted;
@@ -621,29 +534,29 @@ class AdminController extends Controller
         $data = array();
         $rs = Submissions::where("enrollment_id", Session::get("enrollment_id"))->where('submission_status', 'Offered and Accepted')->get()->count();
 
-        $rs1 = SubmissionsWaitlistFinalStatus::where("submissions_waitlist_final_status.enrollment_id", Session::get("enrollment_id"))->where(function($q) {
-                $q->where('first_choice_final_status', 'Offered')
-                  ->orWhere('second_choice_final_status', 'Offered');
-            })->join("waitlist_process_logs", "waitlist_process_logs.version", "submissions_waitlist_final_status.version")->get()->count();
+        $rs1 = SubmissionsWaitlistFinalStatus::where("submissions_waitlist_final_status.enrollment_id", Session::get("enrollment_id"))->where(function ($q) {
+            $q->where('first_choice_final_status', 'Offered')
+                ->orWhere('second_choice_final_status', 'Offered');
+        })->join("waitlist_process_logs", "waitlist_process_logs.version", "submissions_waitlist_final_status.version")->get()->count();
 
-        $rs2 = LateSubmissionFinalStatus::where("late_submissions_final_status.enrollment_id", Session::get("enrollment_id"))->where(function($q) {
-                $q->where('first_choice_final_status', 'Offered')
-                  ->orWhere('second_choice_final_status', 'Offered');
-            })->join("late_submission_process_logs", "late_submission_process_logs.version", "late_submissions_final_status.version")->get()->count();
+        $rs2 = LateSubmissionFinalStatus::where("late_submissions_final_status.enrollment_id", Session::get("enrollment_id"))->where(function ($q) {
+            $q->where('first_choice_final_status', 'Offered')
+                ->orWhere('second_choice_final_status', 'Offered');
+        })->join("late_submission_process_logs", "late_submission_process_logs.version", "late_submissions_final_status.version")->get()->count();
 
-        $data['offer_count'] = $rs;// + $rs1 + $rs2;
+        $data['offer_count'] = $rs; // + $rs1 + $rs2;
 
-        $rs = SubmissionsFinalStatus::where("enrollment_id", Session::get("enrollment_id"))->where(function($q) {
-                $q->where('first_choice_final_status', 'Waitlisted')
-                  ->where('second_choice_final_status', 'Waitlisted');
-            })->orWhere(function($q) {
-                $q->where('first_choice_final_status', 'Waitlisted')
+        $rs = SubmissionsFinalStatus::where("enrollment_id", Session::get("enrollment_id"))->where(function ($q) {
+            $q->where('first_choice_final_status', 'Waitlisted')
+                ->where('second_choice_final_status', 'Waitlisted');
+        })->orWhere(function ($q) {
+            $q->where('first_choice_final_status', 'Waitlisted')
                 ->where('second_choice_final_status', 'Pending');
-            })->get()->count();
-         $rs = Submissions::where("enrollment_id", Session::get("enrollment_id"))->where(function($q) {
-                $q->where('submission_status', 'Waitlisted')
-                  ->orWhere('submission_status', 'Declined / Waitlist for other');
-            })->get()->count();            
+        })->get()->count();
+        $rs = Submissions::where("enrollment_id", Session::get("enrollment_id"))->where(function ($q) {
+            $q->where('submission_status', 'Waitlisted')
+                ->orWhere('submission_status', 'Declined / Waitlist for other');
+        })->get()->count();
         /*$rs1 = SubmissionsWaitlistFinalStatus::where(function($q) {
                 $q->where('first_choice_final_status', 'Waitlisted')
                   ->where('second_choice_final_status', 'Waitlisted');
@@ -686,91 +599,86 @@ class AdminController extends Controller
         $ids = array('"PreK"', '"K"', '"1"', '"2"', '"3"', '"4"', '"5"', '"6"', '"7"', '"8"', '"9"', '"10"', '"11"', '"12"');
         $ids_ordered = implode(',', $ids);
 
-        $grade = Submissions::distinct()->where("enrollment_id", Session::get("enrollment_id"))->where(function($q) use ($program_id) {
-                $q->where('first_choice_program_id', $program_id)
-                  ->orWhere('second_choice_program_id', $program_id);
-            })->orderByRaw('FIELD(next_grade,'.implode(",",$ids).')')->get(['next_grade'])->toArray();
+        $grade = Submissions::distinct()->where("enrollment_id", Session::get("enrollment_id"))->where(function ($q) use ($program_id) {
+            $q->where('first_choice_program_id', $program_id)
+                ->orWhere('second_choice_program_id', $program_id);
+        })->orderByRaw('FIELD(next_grade,' . implode(",", $ids) . ')')->get(['next_grade'])->toArray();
 
         $data = array();
         $availableArr = $offerArr = $declineArr = $outstandingArr = array();
         $gradeArr = "";
-        foreach($grade as $key=>$value)
-        {
+        foreach ($grade as $key => $value) {
             $data[$key]['Grade'] = $value['next_grade'];
-            $gradeArr .= '"'.$value['next_grade'].'",';
+            $gradeArr .= '"' . $value['next_grade'] . '",';
         }
 
-        foreach($data as $key=>$value)
-        {
+        foreach ($data as $key => $value) {
             $avail_grade = Availability::where("district_id", Session::get("district_id"))->where('grade', $value['Grade'])->where("program_id", $program_id)->first();
-            if(!empty($avail_grade))
-            {
+            if (!empty($avail_grade)) {
                 $data[$key]['Available'] = $avail_grade->available_seats;
-            }
-            else
-            {
+            } else {
                 $data[$key]['Available'] = 0;
             }
 
             $avail_seats = WaitlistAvailabilityProcessLog::where("program_id", $program_id)->where("grade", $value['Grade'])->sum("withdrawn_seats");
 
 
-            $availableArr[] = $data[$key]['Available']+$avail_seats;
+            $availableArr[] = $data[$key]['Available'] + $avail_seats;
             $availableVal = $data[$key]['Available'];
 
             $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('first_offer_status', 'Pending')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
+                ->where('first_choice_final_status', 'Offered')->where('first_offer_status', 'Pending')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
             $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('second_offer_status', 'Pending')->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
 
 
             $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('first_offer_status', 'Pending')->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
+                ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
             $rs4 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('second_offer_status', 'Pending')->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
 
             $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('first_offer_status', 'Pending')->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
+                ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
             $rs6 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('second_offer_status', 'Pending')->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->where("next_grade", $value['Grade'])->get()->count();
 
             $OutstandingOffered = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;
             $outstandingArr[] = $OutstandingOffered;
-            
+
 
 
             $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("first_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
+                ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("first_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
             $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("second_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("second_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
 
-           $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("first_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
+            $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
+                ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("first_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
             $rs4 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("second_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();                  
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("second_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
 
-           $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("first_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
+            $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
+                ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("first_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
             $rs6 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("second_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();                  
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->where("second_offer_status", "Accepted")->where('next_grade', $value['Grade'])->get()->count();
 
             $data[$key]['Accepted'] = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;
 
             $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-                  ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for Other')->where('next_grade', $value['Grade'])->get()->count();
+                ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for Other')->where('next_grade', $value['Grade'])->get()->count();
             $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-                  ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for Other')->where('next_grade', $value['Grade'])->get()->count();
-            $data[$key]['Declined'] = $rs1 + $rs2;            
+                ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for Other')->where('next_grade', $value['Grade'])->get()->count();
+            $data[$key]['Declined'] = $rs1 + $rs2;
             $offeredAcceptedVal = $rs1 + $rs2;
 
             $offerArr[] = $data[$key]['Accepted'];
 
-           // $outstandingArr[] = $availableVal - $data[$key]['Accepted'];
+            // $outstandingArr[] = $availableVal - $data[$key]['Accepted'];
             //$declineArr[] = $data[$key]['Declined'];
- 
+
         }
         $gradeArr = trim($gradeArr, ",");
-        return array("grades"=>$gradeArr, "availableArr"=>$availableArr, "offerArr"=>$offerArr, "outstandingArr"=>$outstandingArr);
+        return array("grades" => $gradeArr, "availableArr" => $availableArr, "offerArr" => $offerArr, "outstandingArr" => $outstandingArr);
     }
 
 
@@ -781,75 +689,76 @@ class AdminController extends Controller
         $avail_seats = Availability::where("district_id", Session::get("district_id"))->where("program_id", $program_id)->sum("available_seats");
 
         $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('first_offer_status', 'Pending')->where('submission_status', 'Offered')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('first_offer_status', 'Pending')->where('submission_status', 'Offered')->get()->count();
         $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('second_offer_status', 'Pending')->where('submission_status', 'Offered')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('second_offer_status', 'Pending')->where('submission_status', 'Offered')->get()->count();
         $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('first_offer_status', 'Pending')->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->get()->count();
         $rs4 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('second_offer_status', 'Pending')->where('submission_status', 'Offered')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('second_offer_status', 'Pending')->where('submission_status', 'Offered')->get()->count();
 
         $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('first_offer_status', 'Pending')->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered')->get()->count();
         $rs6 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('second_offer_status', 'Pending')->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered')->get()->count();
 
         $OutstandingOffered = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;
 
 
         $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
         $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
         $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
         $rs4 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
         $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
         $rs6 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Declined')->get()->count();
 
-        $OfferedDeclined = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6; 
+        $OfferedDeclined = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;
 
 
         $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
         $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
         $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
         $rs4 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
         $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
         $rs6 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Declined / Waitlist for other')->get()->count();
 
-        $OfferedWaitlisted = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;   
+        $OfferedWaitlisted = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;
 
         $rs1 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where("first_offer_status", "Accepted")->where('submission_status', 'Offered and Accepted')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where("first_offer_status", "Accepted")->where('submission_status', 'Offered and Accepted')->get()->count();
         $rs2 = SubmissionsFinalStatus::join("submissions", "submissions.id", "submissions_final_status.submission_id")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where("second_offer_status", "Accepted")->where('submission_status', 'Offered and Accepted')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where("second_offer_status", "Accepted")->where('submission_status', 'Offered and Accepted')->get()->count();
         $rs3 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where("first_offer_status", "Accepted")->where('submission_status', 'Offered and Accepted')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where("first_offer_status", "Accepted")->where('submission_status', 'Offered and Accepted')->get()->count();
         $rs4 = SubmissionsWaitlistFinalStatus::join("submissions", "submissions.id", "submissions_waitlist_final_status.submission_id")->where("second_offer_status", "Accepted")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->get()->count();
         $rs5 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where("first_offer_status", "Accepted")->where('submissions.first_choice_program_id', $program_id)
-              ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->get()->count();
+            ->where('first_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->get()->count();
         $rs6 = LateSubmissionFinalStatus::join("submissions", "submissions.id", "late_submissions_final_status.submission_id")->where("second_offer_status", "Accepted")->where('submissions.second_choice_program_id', $program_id)
-              ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->get()->count();
+            ->where('second_choice_final_status', 'Offered')->where('submission_status', 'Offered and Accepted')->get()->count();
 
-        $OfferedAccepted = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6; 
+        $OfferedAccepted = $rs1 + $rs2 + $rs3 + $rs4 + $rs5 + $rs6;
 
         //$OutstandingOffered = $avail_seats - $OfferedAccepted;
 
-        return array("OutstandingOffered"=>$OutstandingOffered, "OfferedDeclined"=>$OfferedDeclined, "OfferedWaitlisted"=>$OfferedWaitlisted, "OfferedAccepted"=>$OfferedAccepted);
+        return array("OutstandingOffered" => $OutstandingOffered, "OfferedDeclined" => $OfferedDeclined, "OfferedWaitlisted" => $OfferedWaitlisted, "OfferedAccepted" => $OfferedAccepted);
     }
-    
-    public function magnetDashboard() {
-        if(\Auth::user()->role_id != 1){
+
+    public function magnetDashboard()
+    {
+        if (Auth::user()->role_id != 1) {
             return redirect('admin/dashboard');
         }
 
@@ -866,10 +775,10 @@ class AdminController extends Controller
 
         $submissions = Submissions::all()->where("district_id", Session::get("district_id"))->where("enrollment_id", Session::get("enrollment_id"))
             ->where('late_submission', $late_submission)
-            ->groupBy(function($item) { 
-                return date('Y-m-d', strtotime($item->created_at)); 
+            ->groupBy(function ($item) {
+                return date('Y-m-d', strtotime($item->created_at));
             })
-            ->sortByDesc(function($item, $created_at) {
+            ->sortByDesc(function ($item, $created_at) {
                 return date('Y-m-d', strtotime($created_at));
             });
 
@@ -885,7 +794,7 @@ class AdminController extends Controller
                 foreach ($item as $submission) {
                     if ($submission->student_id != '') {
                         $current_student_count++;
-                    }else{
+                    } else {
                         $non_current_student_count++;
                     }
                 }
@@ -895,21 +804,20 @@ class AdminController extends Controller
                     'current_student_count' => $current_student_count,
                 ];
             }
-            $data_ary['student_applications1'] = $student_applications1; 
-
+            $data_ary['student_applications1'] = $student_applications1;
         }
 
-        $no_zoned_school_found = \DB::table('no_zoned_school_found')->whereDate('created_at', ">", $ls_date)->get(['created_at']);
+        $no_zoned_school_found = DB::table('no_zoned_school_found')->whereDate('created_at', ">", $ls_date)->get(['created_at']);
         // return $no_zoned_school_found;
         if (!empty($no_zoned_school_found)) {
             $no_zoned_school_found = collect($no_zoned_school_found)
-                ->groupBy(function($item) {
+                ->groupBy(function ($item) {
                     return date('Y-m-d', strtotime($item->created_at));
                 })
-                ->sortByDesc(function($item, $created_at) {
+                ->sortByDesc(function ($item, $created_at) {
                     return date('Y-m-d', strtotime($created_at));
                 });
-                
+
             $no_zoned_school_found_ary = [];
             foreach ($no_zoned_school_found as $key => $value) {
                 // return count($value);
@@ -918,52 +826,51 @@ class AdminController extends Controller
                     'count' => count($value),
                 ];
             }
-            $data_ary['no_zoned_school_found_addresses'] = $no_zoned_school_found_ary; 
+            $data_ary['no_zoned_school_found_addresses'] = $no_zoned_school_found_ary;
             // $data_ary['no_zoned_school_found_addresses'] = array_keys($no_zoned_school_found->toArray()); 
         }
         $steps = SubmissionSteps::whereDate('created_at', ">", $ls_date)->get();
 
-        $steps = $steps->groupBy(function($item) { 
-                return date('Y-m-d', strtotime($item->created_at)); 
-            })
-            ->sortByDesc(function($item, $created_at) {
+        $steps = $steps->groupBy(function ($item) {
+            return date('Y-m-d', strtotime($item->created_at));
+        })
+            ->sortByDesc(function ($item, $created_at) {
                 return date('Y-m-d', strtotime($created_at));
             });
 
-            
-           
-            if (!empty($steps)) {
-                $student_applications1 = [];
-                foreach ($steps as $created_at => $item) {
-                    $step1 = $step2 = $step3 = $step4 = 0;
-                    foreach ($item as $submission) {
-                        ${"step".$submission->step_no}++; 
-                    }
-                    $student_applications1[] = [
-                        'created_at' => $created_at,
-                        'step1' => $step1,
-                        'step2' => $step2,
-                        'step3' => $step3,
-                        'step4' => $step4,
-                    ];
-                }
-                $data_ary['submission_steps'] = $student_applications1; 
 
+
+        if (!empty($steps)) {
+            $student_applications1 = [];
+            foreach ($steps as $created_at => $item) {
+                $step1 = $step2 = $step3 = $step4 = 0;
+                foreach ($item as $submission) {
+                    ${"step" . $submission->step_no}++;
+                }
+                $student_applications1[] = [
+                    'created_at' => $created_at,
+                    'step1' => $step1,
+                    'step2' => $step2,
+                    'step3' => $step3,
+                    'step4' => $step4,
+                ];
             }
+            $data_ary['submission_steps'] = $student_applications1;
+        }
         // Address Override
-         $manual_address = \DB::table('zone_address')->where('added_by', 'manual')
+        $manual_address = DB::table('zone_address')->where('added_by', 'manual')
             ->whereDate('created_at', ">", $ls_date)
             ->get(['created_at']);
         // return $no_zoned_school_found;
         if (!empty($manual_address)) {
             $manual_address = collect($manual_address)
-                ->groupBy(function($item) {
+                ->groupBy(function ($item) {
                     return date('Y-m-d', strtotime($item->created_at));
                 })
-                ->sortByDesc(function($item, $created_at) {
+                ->sortByDesc(function ($item, $created_at) {
                     return date('Y-m-d', strtotime($created_at));
                 });
-                
+
             $manual_address_ary = [];
             foreach ($manual_address as $key => $value) {
                 // return count($value);
@@ -972,7 +879,7 @@ class AdminController extends Controller
                     'count' => count($value),
                 ];
             }
-            $data_ary['manual_address'] = $manual_address_ary; 
+            $data_ary['manual_address'] = $manual_address_ary;
             // $data_ary['no_zoned_school_found_addresses'] = array_keys($no_zoned_school_found->toArray()); 
         }
 
@@ -980,13 +887,13 @@ class AdminController extends Controller
         return view('layouts.admin.dashboard_magnet', compact('data_ary', 'late_submission'));
     }
 
-   public function loadAddresses(Request $request) {
+    public function loadAddresses(Request $request)
+    {
         $req = $request::all();
-        // return $req;
         $data_ary = [];
         if (isset($req['date'])) {
             $date = date('Y-m-d', strtotime($req['date']));
-            $data = \DB::table('no_zoned_school_found')->whereDate('created_at', $date)->get(['street_address', 'city', 'zip', 'created_at']);
+            $data = DB::table('no_zoned_school_found')->whereDate('created_at', $date)->get(['street_address', 'city', 'zip', 'created_at']);
             if (!empty($data)) {
                 foreach ($data as $key => $value) {
                     $data_ary[] = [
@@ -994,20 +901,21 @@ class AdminController extends Controller
                         ($value->city ?? '-'),
                         ($value->zip ?? '-')
                     ];
-                }     
+                }
             }
         }
         return json_encode($data_ary);
     }
 
-    
-    public function loadOverrideAddresses(Request $request) {
+
+    public function loadOverrideAddresses(Request $request)
+    {
         $req = $request::all();
         // return $req;
         $data_ary = [];
         if (isset($req['date'])) {
             $date = date('Y-m-d', strtotime($req['date']));
-            $data = \DB::table('zone_address')->where("added_by", "manual")->whereDate('created_at', $date)->get(['bldg_num','street_name', 'street_type', 'suffix_dir_full', 'city', 'zip', 'elementary_school', 'middle_school', 'intermediate_school', 'high_school', 'user_id']);
+            $data = DB::table('zone_address')->where("added_by", "manual")->whereDate('created_at', $date)->get(['bldg_num', 'street_name', 'street_type', 'suffix_dir_full', 'city', 'zip', 'elementary_school', 'middle_school', 'intermediate_school', 'high_school', 'user_id']);
             if (!empty($data)) {
                 foreach ($data as $key => $value) {
                     $data_ary[] = [
@@ -1024,12 +932,11 @@ class AdminController extends Controller
                         ($value->intermediate_school ?? ''),
                         ($value->high_school ?? ''),
                         ($value->user_id != 0 ? getUserName($value->user_id) : '')
-                        
+
                     ];
-                }     
+                }
             }
         }
         return json_encode($data_ary);
-   
     }
-}       
+}

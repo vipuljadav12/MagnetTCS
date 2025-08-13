@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix' => 'admin/Process/Selection','module' => 'ProcessSelection', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\ProcessSelection\Controllers'], function() {
     Route::get('/run', 'ProcessSelectionController@application_index');
     Route::get('/Reports', 'ProcessSelectionController@run_admin_selection');

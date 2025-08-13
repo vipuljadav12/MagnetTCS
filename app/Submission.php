@@ -3,11 +3,9 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
-use Session;
 
 class Submission extends Model
 {
-    //
     protected $table='submissions';
     public $additional = ['enrollment_id', 'application_id'];
     public $date_fields = ['birthday'];

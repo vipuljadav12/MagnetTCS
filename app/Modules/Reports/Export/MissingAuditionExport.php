@@ -2,7 +2,7 @@
 
 namespace App\Modules\Reports\Export;
 
-use Maatwebsite\Excel\Concerns\{Exportable,WithEvents,FromCollection,ShouldAutoSize,WithHeadings};
+use Maatwebsite\Excel\Concerns\{Exportable, WithEvents, FromCollection, ShouldAutoSize, WithHeadings};
 use Maatwebsite\Excel\Events\AfterSheet;
 
 class MissingAuditionExport implements FromCollection, WithHeadings, ShouldAutoSize, WithEvents
@@ -26,15 +26,15 @@ class MissingAuditionExport implements FromCollection, WithHeadings, ShouldAutoS
 
     public function registerEvents(): array
     {
-    	return [
-    		AfterSheet::class    => function(AfterSheet $event) {
-    			$event->sheet->getDelegate()->getRowDimension(1)->setRowHeight(25);
-    			$styleArray = [
+        return [
+            AfterSheet::class    => function (AfterSheet $event) {
+                $event->sheet->getDelegate()->getRowDimension(1)->setRowHeight(25);
+                $styleArray = [
                     'font' => [
                         'family' => 'Open Sans',
                         'size' =>  12,
                         'bold' => true,
-                        ],
+                    ],
                     'alignment' => [
                         'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
                     ],
@@ -52,7 +52,7 @@ class MissingAuditionExport implements FromCollection, WithHeadings, ShouldAutoS
                         'family' => 'Open Sans',
                         'size' =>  12,
                         'bold' => false,
-                        ],
+                    ],
                     'alignment' => [
                         'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
                         'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
@@ -63,9 +63,8 @@ class MissingAuditionExport implements FromCollection, WithHeadings, ShouldAutoS
                 $to = $event->sheet->getDelegate()->getHighestColumn();
                 $toC = $event->sheet->getDelegate()->getHighestRow();
 
-                $event->sheet->getDelegate()->getStyle('A2:'.$to.$toC)->applyFromArray($styleArray);
-    		}
+                $event->sheet->getDelegate()->getStyle('A2:' . $to . $toC)->applyFromArray($styleArray);
+            }
         ];
     }
-
 }

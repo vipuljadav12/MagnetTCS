@@ -3,9 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use App\District;
-use Illuminate\Support\Facades\Auth;
-use Session;
+
 class SubDomain
 {
     /**

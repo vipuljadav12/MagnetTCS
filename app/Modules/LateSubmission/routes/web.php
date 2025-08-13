@@ -1,6 +1,8 @@
 <?php
 
-Route::group(['prefix' => 'admin/LateSubmission','module' => 'LateSubmission', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\LateSubmission\Controllers'], function() {
+use Illuminate\Support\Facades\Route;
+
+Route::group(['prefix' => 'admin/LateSubmission', 'module' => 'LateSubmission', 'middleware' => ['web', 'auth'], 'namespace' => 'App\Modules\LateSubmission\Controllers'], function () {
 
     Route::get('/', 'LateSubmissionController@application_index');
     Route::get('/Process/Selection/validate/application/{application_id}', 'LateSubmissionController@validateApplication');
@@ -37,10 +39,10 @@ Route::group(['prefix' => 'admin/LateSubmission','module' => 'LateSubmission', '
 
     //Route::get('/Revert/list', 'ProcessSelectionController@selection_revert');
 
-    Route::get('/EditCommunication/','LateSubmissionEditCommunicationController@application_index');
-    Route::get('/EditCommunication/application/{id}','LateSubmissionEditCommunicationController@index');
-    Route::get('/EditCommunication/application/{id}/{status}','LateSubmissionEditCommunicationController@index');
-    Route::post('/EditCommunication/get/emails','LateSubmissionEditCommunicationController@fetchEmails');
+    Route::get('/EditCommunication/', 'LateSubmissionEditCommunicationController@application_index');
+    Route::get('/EditCommunication/application/{id}', 'LateSubmissionEditCommunicationController@index');
+    Route::get('/EditCommunication/application/{id}/{status}', 'LateSubmissionEditCommunicationController@index');
+    Route::post('/EditCommunication/get/emails', 'LateSubmissionEditCommunicationController@fetchEmails');
 
     Route::get('/EditCommunication/download/{id}',  'LateSubmissionEditCommunicationController@downloadFile');
 
@@ -49,32 +51,26 @@ Route::group(['prefix' => 'admin/LateSubmission','module' => 'LateSubmission', '
 
     //Route::get('/EditCommunication/preview/{status}', 'LateSubmissionEditCommunicationController@previewEmail');
     Route::get('/EditCommunication/preview/email/{status}/{application_id}', 'LateSubmissionEditCommunicationController@previewEmail');
-    Route::post('/EditCommunication/Send/Test/Mail','LateSubmissionEditCommunicationController@sendTestMail');
+    Route::post('/EditCommunication/Send/Test/Mail', 'LateSubmissionEditCommunicationController@sendTestMail');
 
+    Route::get('/EditCommunication/{status}', 'LateSubmissionEditCommunicationController@index');
+    Route::post('/EditCommunication/store/letter', 'LateSubmissionEditCommunicationController@storeLetter');
+    Route::post('/EditCommunication/store/email', 'LateSubmissionEditCommunicationController@storeEmail');
+    Route::get('/EditCommunication/communicationPDF/{form_name}', 'LateSubmissionEditCommunicationController@generatePDF');
+    Route::get('/EditCommunication/communicationEmail/{form_name}', 'LateSubmissionEditCommunicationController@generateEmail');
 
+    Route::get('/EditCommunication/lettersLog', 'LateSubmissionEditCommunicationController@lettersLog');
+    Route::get('/EditCommunication/deletePDF/{id}', 'LateSubmissionEditCommunicationController@deleteLettersLog');
 
-
-    Route::get('/EditCommunication/{status}','LateSubmissionEditCommunicationController@index');
-    Route::post('/EditCommunication/store/letter','LateSubmissionEditCommunicationController@storeLetter');
-    Route::post('/EditCommunication/store/email','LateSubmissionEditCommunicationController@storeEmail');
-    Route::get('/EditCommunication/communicationPDF/{form_name}','LateSubmissionEditCommunicationController@generatePDF');
-    Route::get('/EditCommunication/communicationEmail/{form_name}','LateSubmissionEditCommunicationController@generateEmail');
-    
-    Route::get('/EditCommunication/lettersLog','LateSubmissionEditCommunicationController@lettersLog');
-    Route::get('/EditCommunication/deletePDF/{id}','LateSubmissionEditCommunicationController@deleteLettersLog');
-
-    Route::get('/EditCommunication/emailsLog','LateSubmissionEditCommunicationController@emailsLog');
-    Route::get('/EditCommunication/deleteemailsLog/{id}','LateSubmissionEditCommunicationController@deleteEmailsLog');
-
-
+    Route::get('/EditCommunication/emailsLog', 'LateSubmissionEditCommunicationController@emailsLog');
+    Route::get('/EditCommunication/deleteemailsLog/{id}', 'LateSubmissionEditCommunicationController@deleteEmailsLog');
 });
 
-Route::group(['prefix' => 'admin/LateSubmission/Preliminary/Processing','module' => 'LateSubmission', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\LateSubmission\Controllers'], function() {
-    
+Route::group(['prefix' => 'admin/LateSubmission/Preliminary/Processing', 'module' => 'LateSubmission', 'middleware' => ['web', 'auth'], 'namespace' => 'App\Modules\LateSubmission\Controllers'], function () {
+
     Route::get('/', 'PreliminaryLateController@index');
-        Route::post('/rollback', 'PreliminaryLateController@roll_back_submissions');
+    Route::post('/rollback', 'PreliminaryLateController@roll_back_submissions');
 
     Route::post('/calculate', 'PreliminaryLateController@calculate');
     Route::post('/commit', 'PreliminaryLateController@commit_score');
-
 });

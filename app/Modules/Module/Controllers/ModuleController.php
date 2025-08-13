@@ -6,12 +6,15 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Module\Models\Module;
 use App\Modules\Permission\Models\Permission;
-use Session;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
 
 class ModuleController extends Controller
 {
-
-    public function __construct(){
+    protected $module;
+    protected $permission;
+    public function __construct()
+    {
         $this->module = new Module();
         $this->permission = new Permission();
     }
@@ -23,9 +26,9 @@ class ModuleController extends Controller
      */
     public function index()
     {
-        $district_id = \Session::get('district_id');
+        $district_id = Session::get('district_id');
         $data['modules'] = $this->module->Index();
-        return view("Module::index")->with('data',$data);
+        return view("Module::index")->with('data', $data);
     }
 
     /**
@@ -48,29 +51,29 @@ class ModuleController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'name'=>'required|unique:modules',
+            'name' => 'required|unique:modules',
         ];
 
         $message = [
-            'name.required'=>'Module Name is required',
-            'name.unique'=>'Module name must be unique',
+            'name.required' => 'Module Name is required',
+            'name.unique' => 'Module name must be unique',
         ];
 
-        $validator = \Validator::make($request->all(), $rules, $message);
+        $validator = Validator::make($request->all(), $rules, $message);
 
-        if($validator->fails()){
-            \Session::flash('error','Plese fill all required fields.');
+        if ($validator->fails()) {
+            Session::flash('error', 'Plese fill all required fields.');
             return redirect()->back()->withErrors($validator)->withInput();
-        }else{
+        } else {
             // return $request->except(['_token','save','save_exit']);
             // $request['district_id'] = \Session::get('district_id');
-            $module_id = $this->module::create($request->except(['_token','save','save_exit']))->id;
+            $module_id = $this->module::create($request->except(['_token', 'save', 'save_exit']))->id;
 
-            \Session::flash('success','Module created successfully.');
+            Session::flash('success', 'Module created successfully.');
 
-            if(isset($request['save'])){
+            if (isset($request['save'])) {
                 return redirect('admin/Module/create');
-            }else{
+            } else {
                 return redirect('/admin/Module');
             }
         }
@@ -85,9 +88,9 @@ class ModuleController extends Controller
      */
     public function edit($id)
     {
-       
-        $data['module'] = $this->module->where('id',$id)->first();
-        return view('Module::edit')->with('data',$data);
+
+        $data['module'] = $this->module->where('id', $id)->first();
+        return view('Module::edit')->with('data', $data);
     }
 
     /**
@@ -101,38 +104,38 @@ class ModuleController extends Controller
     {
         // return $request;
         $rules = [
-            'name'=>'required|unique:modules,id,'.$request->id,
+            'name' => 'required|unique:modules,id,' . $request->id,
         ];
 
         $message = [
-            'name.required'=>'Module Name is required',
-            'name.unique'=>'Module name must be unique',
+            'name.required' => 'Module Name is required',
+            'name.unique' => 'Module name must be unique',
         ];
 
-        $validator = \Validator::make($request->all(), $rules, $message);
+        $validator = Validator::make($request->all(), $rules, $message);
 
-        if($validator->fails()){
-            \Session::flash('error','Plese fill all required fields.');
+        if ($validator->fails()) {
+            Session::flash('error', 'Plese fill all required fields.');
             return redirect()->back()->withErrors($validator)->withInput();
-        }else{
+        } else {
 
-            $this->module::where('id',$request->id)->update($request->except(['_token','save','logo','save_exit']));
+            $this->module::where('id', $request->id)->update($request->except(['_token', 'save', 'logo', 'save_exit']));
 
-            \Session::flash('success','Module updated successfully.');
+            Session::flash('success', 'Module updated successfully.');
 
-            if(isset($request['save'])){
-                return redirect('admin/Module/edit/'.$request->id);
-            }else{
+            if (isset($request['save'])) {
+                return redirect('admin/Module/edit/' . $request->id);
+            } else {
                 return redirect('/admin/Module');
             }
-
         }
     }
 
-    public function trash(){
+    public function trash()
+    {
         $data['modules'] = $this->module::onlyTrashed()->get();
         // return $data;
-        return view('Module::trash')->with('data',$data);
+        return view('Module::trash')->with('data', $data);
     }
 
     /**
@@ -161,20 +164,20 @@ class ModuleController extends Controller
             $value->forceDelete();
         }
         return $id;*/
-        $permission=$this->permission->where('module_id',$id)->first();
-        if(isset($permission->id)){
-           // Session::flash('error','Please remove usertype\'s this permissions'); 
-           \Session::flash('error','Permission assigned to module, Please remove user permission first'); 
-        }else{
+        $permission = $this->permission->where('module_id', $id)->first();
+        if (isset($permission->id)) {
+            // Session::flash('error','Please remove usertype\'s this permissions'); 
+            Session::flash('error', 'Permission assigned to module, Please remove user permission first');
+        } else {
 
-            $module = $this->module->where('id',$id)->onlyTrashed()->first();
-            if(!empty($module)){
+            $module = $this->module->where('id', $id)->onlyTrashed()->first();
+            if (!empty($module)) {
                 $module->forceDelete();
                 $flag = 'true';
-                \Session::flash('success','module has been deleted');
-                }
+                Session::flash('success', 'module has been deleted');
+            }
             return redirect()->back();
-                // return $id;
+            // return $id;
         }
     }
 
@@ -198,16 +201,16 @@ class ModuleController extends Controller
 
     public function delete($id)
     {
-         $permission=$this->permission->where('module_id',$id)->first();
-        if(isset($permission->id)){
-           \Session::flash('error','Permission assigned to module, Please remove user permission first'); 
-        }else{
-          $data = ['status'=>'T'];
+        $permission = $this->permission->where('module_id', $id)->first();
+        if (isset($permission->id)) {
+            Session::flash('error', 'Permission assigned to module, Please remove user permission first');
+        } else {
+            $data = ['status' => 'T'];
             $this->module::where('id', $id)->delete();
             // $this->module::where('id', $id)->update($data);
-            Session::flash('success','Module has been moved to trash.');
+            Session::flash('success', 'Module has been moved to trash.');
         }
-        
+
         return redirect()->back();
     }
 
@@ -219,14 +222,13 @@ class ModuleController extends Controller
      */
     public function restore($id)
     {
-        $module = $this->module::where('id',$id)->onlyTrashed()->first();
-        if(!empty($module)){
+        $module = $this->module::where('id', $id)->onlyTrashed()->first();
+        if (!empty($module)) {
             $module->restore();
-        // return $module;
+            // return $module;
             $flag = 'true';
         }
-        \Session::flash('success','Module has been Restored');
+        Session::flash('success', 'Module has been Restored');
         return redirect('/admin/Module');
     }
-
 }

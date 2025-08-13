@@ -13,14 +13,15 @@ use App\Modules\Program\Models\ProgramEligibility;
 use App\Modules\Program\Models\ProgramEligibilityLateSubmission;
 use App\Modules\Priority\Models\Priority;
 use App\Modules\SetEligibility\Models\{SetEligibility,SetEligibilityConfiguration,SetEligibilityLateSubmission};
-use Session;
-use View;
-use DB;
 use App\Traits\AuditTrail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\View;
 
 class SetEligibilityController extends Controller
 {
     use AuditTrail;
+    protected $url;
     /**
      * Display a listing of the resource.
      *
@@ -33,8 +34,8 @@ class SetEligibilityController extends Controller
     }
     public function index()
     {
-        if(\Session::get("district_id") != '0')
-            $programs=Program::where('status','!=','T')->where('district_id', \Session::get('district_id'))->where('enrollment_id', Session::get('enrollment_id'))->get();
+        if(Session::get("district_id") != '0')
+            $programs=Program::where('status','!=','T')->where('district_id', Session::get('district_id'))->where('enrollment_id', Session::get('enrollment_id'))->get();
         else
             $programs=Program::where('status','!=','T')->where('enrollment_id', Session::get('enrollment_id'))->get();
         // return $programs;

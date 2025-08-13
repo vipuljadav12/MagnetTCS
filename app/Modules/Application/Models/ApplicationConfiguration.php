@@ -4,14 +4,13 @@ namespace App\Modules\Application\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ApplicationConfiguration extends Model {
-
-    //
-    public $timestamps = false;
-	protected $table='application_configuration';
-	public $primary_key='id';
+class ApplicationConfiguration extends Model
+{
+	public $timestamps = false;
+	protected $table = 'application_configuration';
+	public $primary_key = 'id';
 	public $traitField = "application_id";
-	public $fillable=[
+	public $fillable = [
 		'application_id',
 		'active_screen',
 		'active_email',

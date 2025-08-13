@@ -5,8 +5,9 @@ namespace App\Modules\StudentSearch\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Student\Models\Student;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use DB;
+
 class StudentSearchController extends Controller
 {
     protected $module_url = 'admin/StudentSearch';
@@ -19,8 +20,7 @@ class StudentSearchController extends Controller
     {
         $id = $request->id;
         $student = Student::where('stateID', $id)->first();
-        if(!empty($student))
-        {
+        if (!empty($student)) {
             $data['student'] = $student;
 
             $termData = DB::table("ps_cc")->where('studentid',  $student->student_id)->distinct()->get(['termid']);
@@ -36,91 +36,76 @@ class StudentSearchController extends Controller
             // }
 
             $homeroomData = [];
-            foreach($termIds as $termid)
-            {
+            foreach ($termIds as $termid) {
                 /* For Home Room Teacher */
                 $homeData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.ps_id', 'ps_cc.sectionid')
-                                              ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
-                                              ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                              ->where("ps_cc.studentid", $student->student_id)
-                                              ->where("ps_cc.termid", 'like', $termid.'%')
-                                              ->where('ps_cc.course_number', 'like', '22991%')
-                                              ->first(['email_addr', 'first_name', 'last_name']);
-                if(!empty($homeData))
-                {
+                    ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
+                    ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                    ->where("ps_cc.studentid", $student->student_id)
+                    ->where("ps_cc.termid", 'like', $termid . '%')
+                    ->where('ps_cc.course_number', 'like', '22991%')
+                    ->first(['email_addr', 'first_name', 'last_name']);
+                if (!empty($homeData)) {
                     $homeroomData[$termid] = $homeData;
-                }
-                else
-                {
+                } else {
                     $homeData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.ps_id', 'ps_cc.sectionid')
-                                              ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
-                                              ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                              ->where("ps_cc.studentid", $student->student_id)
-                                              ->where("ps_cc.termid", 'like', $termid.'%')
-                                              ->where('ps_sections.external_expression', 'P4(A)')
-                                              ->first(['email_addr', 'first_name', 'last_name']);
-                    if(!empty($homeData))
-                    {
+                        ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
+                        ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                        ->where("ps_cc.studentid", $student->student_id)
+                        ->where("ps_cc.termid", 'like', $termid . '%')
+                        ->where('ps_sections.external_expression', 'P4(A)')
+                        ->first(['email_addr', 'first_name', 'last_name']);
+                    if (!empty($homeData)) {
                         $homeroomData[$termid] = $homeData;
                     }
                 }
-
             }
-            
+
             $mathTeacherData = $engTeacherData = [];
-            foreach($termIds as $termid)
-            {
+            foreach ($termIds as $termid) {
                 /* Maths teacher data */
                 $mathData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '02%')
-                                                  ->where('ps_sections.grade_level', '!=', '')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                if(!empty($mathData))
-                {
+                    ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
+                    ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                    ->where("ps_cc.studentid", $student->student_id)
+                    ->where("ps_cc.termid", 'like', $termid . '%')
+                    ->where('ps_sections.course_number', 'like', '02%')
+                    ->where('ps_sections.grade_level', '!=', '')
+                    ->first(['email_addr', 'first_name', 'last_name']);
+                if (!empty($mathData)) {
                     $mathTeacherData[$termid] = $mathData;
-                }
-                else
-                {
+                } else {
                     $mathData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.ps_id', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '02%')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                    if(!empty($mathData))
-                    {
+                        ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
+                        ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                        ->where("ps_cc.studentid", $student->student_id)
+                        ->where("ps_cc.termid", 'like', $termid . '%')
+                        ->where('ps_sections.course_number', 'like', '02%')
+                        ->first(['email_addr', 'first_name', 'last_name']);
+                    if (!empty($mathData)) {
                         $mathTeacherData[$termid] = $mathData;
                     }
                 }
 
                 $engData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.ps_id', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '01%')
-                                                  ->where('ps_sections.grade_level', '!=', '')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                if(!empty($engData))
-                {
+                    ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
+                    ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                    ->where("ps_cc.studentid", $student->student_id)
+                    ->where("ps_cc.termid", 'like', $termid . '%')
+                    ->where('ps_sections.course_number', 'like', '01%')
+                    ->where('ps_sections.grade_level', '!=', '')
+                    ->first(['email_addr', 'first_name', 'last_name']);
+                if (!empty($engData)) {
                     $engTeacherData[$termid] = $engData;
-                }
-                else
-                {
+                } else {
                     $engData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.ps_id', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '01%')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                    if(!empty($engData))
-                    {
+                        ->join('ps_schoolstaff', 'ps_schoolstaff.ps_id', 'ps_sections.teacher')
+                        ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                        ->where("ps_cc.studentid", $student->student_id)
+                        ->where("ps_cc.termid", 'like', $termid . '%')
+                        ->where('ps_sections.course_number', 'like', '01%')
+                        ->first(['email_addr', 'first_name', 'last_name']);
+                    if (!empty($engData)) {
                         $engTeacherData[$termid] = $engData;
                     }
                 }
@@ -128,7 +113,7 @@ class StudentSearchController extends Controller
         }
         $data['student'] = $student;
 
-      //  dd($homeroomData);
+        //  dd($homeroomData);
 
         return view('StudentSearch::data', compact('data', 'engTeacherData', 'mathTeacherData', 'homeroomData', 'termIds'))->with('module_url', $this->module_url);
     }
@@ -136,8 +121,7 @@ class StudentSearchController extends Controller
     public function data1($id)
     {
         $student = Student::where('stateID', $id)->first();
-        if(!empty($student))
-        {
+        if (!empty($student)) {
             $data['student'] = $student;
             $termIds = [33];
             // $termData = DB::table("ps_cc")->where('studentid',  $student->dcid)->distinct()->get(['termid']);
@@ -151,94 +135,79 @@ class StudentSearchController extends Controller
             //     }
 
             // }
-           // $termIds[] = 33;
+            // $termIds[] = 33;
 
             $homeroomData = [];
-            foreach($termIds as $termid)
-            {
+            foreach ($termIds as $termid) {
                 /* For Home Room Teacher */
                 $homeData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                              ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
-                                              ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                              ->where("ps_cc.studentid", $student->student_id)
-                                              ->where("ps_cc.termid", 'like', $termid.'%')
-                                              ->where('ps_cc.course_number', 'like', '22991%')
-                                              ->first(['email_addr', 'first_name', 'last_name']);
-                if(!empty($homeData))
-                {
+                    ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
+                    ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                    ->where("ps_cc.studentid", $student->student_id)
+                    ->where("ps_cc.termid", 'like', $termid . '%')
+                    ->where('ps_cc.course_number', 'like', '22991%')
+                    ->first(['email_addr', 'first_name', 'last_name']);
+                if (!empty($homeData)) {
                     $homeroomData[$termid] = $homeData;
-                }
-                else
-                {
+                } else {
                     $homeData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                              ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
-                                              ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                              ->where("ps_cc.studentid", $student->student_id)
-                                              ->where("ps_cc.termid", 'like', $termid.'%')
-                                              ->where('ps_sections.external_expression', 'P4(A)')
-                                              ->first(['email_addr', 'first_name', 'last_name']);
-                    if(!empty($homeData))
-                    {
+                        ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
+                        ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                        ->where("ps_cc.studentid", $student->student_id)
+                        ->where("ps_cc.termid", 'like', $termid . '%')
+                        ->where('ps_sections.external_expression', 'P4(A)')
+                        ->first(['email_addr', 'first_name', 'last_name']);
+                    if (!empty($homeData)) {
                         $homeroomData[$termid] = $homeData;
                     }
                 }
-
             }
 
             $mathTeacherData = $engTeacherData = [];
-            foreach($termIds as $termid)
-            {
+            foreach ($termIds as $termid) {
                 /* Maths teacher data */
                 $mathData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '02%')
-                                                  ->where('ps_sections.grade_level', '!=', '')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                if(!empty($mathData))
-                {
+                    ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
+                    ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                    ->where("ps_cc.studentid", $student->student_id)
+                    ->where("ps_cc.termid", 'like', $termid . '%')
+                    ->where('ps_sections.course_number', 'like', '02%')
+                    ->where('ps_sections.grade_level', '!=', '')
+                    ->first(['email_addr', 'first_name', 'last_name']);
+                if (!empty($mathData)) {
                     $mathTeacherData[$termid] = $mathData;
-                }
-                else
-                {
+                } else {
                     $mathData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->dcid)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '02%')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                    if(!empty($mathData))
-                    {
+                        ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
+                        ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                        ->where("ps_cc.studentid", $student->dcid)
+                        ->where("ps_cc.termid", 'like', $termid . '%')
+                        ->where('ps_sections.course_number', 'like', '02%')
+                        ->first(['email_addr', 'first_name', 'last_name']);
+                    if (!empty($mathData)) {
                         $mathTeacherData[$termid] = $mathData;
                     }
                 }
 
                 $engData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '01%')
-                                                  ->where('ps_sections.grade_level', '!=', '')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                if(!empty($engData))
-                {
+                    ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
+                    ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                    ->where("ps_cc.studentid", $student->student_id)
+                    ->where("ps_cc.termid", 'like', $termid . '%')
+                    ->where('ps_sections.course_number', 'like', '01%')
+                    ->where('ps_sections.grade_level', '!=', '')
+                    ->first(['email_addr', 'first_name', 'last_name']);
+                if (!empty($engData)) {
                     $engTeacherData[$termid] = $engData;
-                }
-                else
-                {
+                } else {
                     $engData = DB::table("ps_cc")->join('ps_sections', 'ps_sections.dcid', 'ps_cc.sectionid')
-                                                  ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
-                                                  ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
-                                                  ->where("ps_cc.studentid", $student->student_id)
-                                                  ->where("ps_cc.termid", 'like', $termid.'%')
-                                                  ->where('ps_sections.course_number', 'like', '01%')
-                                                  ->first(['email_addr', 'first_name', 'last_name']);
-                    if(!empty($engData))
-                    {
+                        ->join('ps_schoolstaff', 'ps_schoolstaff.dcid', 'ps_sections.teacher')
+                        ->join('ps_users', 'ps_users.dcid', 'ps_schoolstaff.users_dcid')
+                        ->where("ps_cc.studentid", $student->student_id)
+                        ->where("ps_cc.termid", 'like', $termid . '%')
+                        ->where('ps_sections.course_number', 'like', '01%')
+                        ->first(['email_addr', 'first_name', 'last_name']);
+                    if (!empty($engData)) {
                         $engTeacherData[$termid] = $engData;
                     }
                 }
@@ -246,7 +215,7 @@ class StudentSearchController extends Controller
         }
         $data['student'] = $student;
 
-      //  dd($homeroomData);
+        //  dd($homeroomData);
 
         return view('StudentSearch::data', compact('data', 'engTeacherData', 'mathTeacherData', 'homeroomData', 'termIds'))->with('module_url', $this->module_url);
     }
@@ -280,5 +249,5 @@ class StudentSearchController extends Controller
         $id = $request->id;
         $update = Student::where('stateID', $id)->update($data);
         return $update ? 'true' : 'false';
-    }        
+    }
 }

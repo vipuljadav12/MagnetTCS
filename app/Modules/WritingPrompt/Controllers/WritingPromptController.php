@@ -4,27 +4,29 @@ namespace App\Modules\WritingPrompt\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Validator;
 use App\Modules\WritingPrompt\Models\WritingPrompt;
 use App\Modules\WritingPrompt\Models\WritingPromptLog;
 use App\Modules\WritingPrompt\Models\WritingPromptDetail;
 use App\Modules\WritingPrompt\Models\WritingPromptDetailLog;
 use App\Modules\WritingPrompt\Models\WritingPromptConfig;
-use Session;
-use DB;
 use App\Modules\Submissions\Models\Submissions;
 use App\Modules\Eligibility\Models\EligibilityTemplate;
-use PDF;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
 
 class WritingPromptController extends Controller
 {
-    public function index() {
+    public function index()
+    {
         $data = WritingPromptConfig::where('district_id', Session::get('district_id'))->first();
         return view('WritingPrompt::index', compact('data'));
-    }  
+    }
 
-    public function store(Request $request) {
+    public function store(Request $request)
+    {
         $rules = [
             'duration' => 'required|numeric|digits_between:0,3',
             'intro_txt' => 'required',
@@ -45,7 +47,7 @@ class WritingPromptController extends Controller
         if ($validate->fails()) {
             return redirect('admin/WritingPrompt')->withErrors($validate)->withInput();
         }
-        
+
         $data = [
             'duration' => $request->duration,
             'intro_txt' => $request->intro_txt,
@@ -57,29 +59,27 @@ class WritingPromptController extends Controller
             $data
         );
 
-        if(isset($result))
-        {
-            Session::flash("success","Data Updated successfully.");
-        }
-        else
-        {
-            Session::flash("warning","Something went wrong , Please try again.");
+        if (isset($result)) {
+            Session::flash("success", "Data Updated successfully.");
+        } else {
+            Session::flash("warning", "Something went wrong , Please try again.");
         }
         return redirect('admin/WritingPrompt');
     }
 
-    public function sendLinkMail(Request $request) {
+    public function sendLinkMail(Request $request)
+    {
 
         $eligibility_template = 'Writing Prompt';
         // $wp_config = WritingPromptConfig::where('district_id', Session::get('district_id'))->first();
         $choice = $request->choice;
         $submission_id = $request->submission_id;
         $submission = Submissions::where('id', $submission_id)->first();
-        $program_id = $submission->{$choice.'_choice_program_id'};
+        $program_id = $submission->{$choice . '_choice_program_id'};
         // Email data
         $e_temp = EligibilityTemplate::where('name', $eligibility_template)->first();
         $email_config = [];
-        
+
         if (isset($e_temp->id)) {
             $email_config = DB::table('set_eligibility_configuration')
                 ->where('district_id', session('district_id'))
@@ -88,46 +88,43 @@ class WritingPromptController extends Controller
                 ->get();
         }
 
-        if(!empty($email_config)) {
+        if (!empty($email_config)) {
             $submission_data = DB::table('submission_data')
                 ->where('submission_id', $submission_id)
-                ->where('config_name', 'wp_'.$choice.'_choice_link')
+                ->where('config_name', 'wp_' . $choice . '_choice_link')
                 ->first();
             $link = $submission_data->config_value ?? '';
-            
-            if ( ($request->parent_email != '') && ($link != '') ) {
+
+            if (($request->parent_email != '') && ($link != '')) {
                 // $submission = Submissions::where('id', $submission_id)->first();
                 $sortcode_values = getSortCodeValues($submission, $choice);
 
                 $application_data = \App\Modules\Application\Models\Application::join("enrollments", "enrollments.id", "application.enrollment_id")->where("application.status", "Y")->where("application.id", $submission->application_id)->select("application.*", "enrollments.school_year")->first();
                 $logo = getDistrictLogo($application_data->display_logo) ?? '';
 
-                
-                
 
-                if($submission->student_id != '')
-                {
+
+
+                if ($submission->student_id != '') {
                     $email_subject = $email_config->where('configuration_type', 'student_email_subject')->first();
                     $email_body = $email_config->where('configuration_type', 'student_email_content')->first();
-                }
-                else
-                {
+                } else {
                     $email_subject = $email_config->where('configuration_type', 'parent_email_subject')->first();
                     $email_body = $email_config->where('configuration_type', 'parent_email_content')->first();
                 }
                 $msg_body = $email_body->configuration_value ?? '';
 
                 $sub = find_replace_string($email_subject->configuration_value ?? '', $sortcode_values);
-                $sub = str_replace("{","",$sub);
-                $sub = str_replace("}","",$sub);
+                $sub = str_replace("{", "", $sub);
+                $sub = str_replace("}", "", $sub);
                 //$email_subject = $sub;
 
                 $msg = find_replace_string($msg_body, $sortcode_values);
-                $msg = str_replace("{","",$msg);
-                $msg = str_replace("}","",$msg);
-               
+                $msg = str_replace("{", "", $msg);
+                $msg = str_replace("}", "", $msg);
+
                 //$msg .= '<br> Writing Prompt Link: <a href="'.$link.'" target="_blank">'.$link.'</a><br>';
-                
+
                 // $data['user_id'] = \Auth::user()->id;
                 $data['submission_id'] = $submission_id;
                 $data['program_id'] = $program_id;
@@ -138,14 +135,13 @@ class WritingPromptController extends Controller
                 $data['email_to'] = $request->parent_email;
                 $data['email_subject'] = $sub;
                 $data['module'] = "Manual Resend Email";
-                try{
-                    \Mail::send('emails.index', ['data' => $data], function($message) use ($data){
+                try {
+                    Mail::send('emails.index', ['data' => $data], function ($message) use ($data) {
                         $message->to($data['email_to']);
                         $message->subject($data['email_subject']);
                     });
                     createEmailActivityLog($data);
-                }
-                catch(\Exception $e){
+                } catch (\Exception $e) {
                     return 'Mail not sent.';
                 }
                 return 'true';
@@ -154,11 +150,12 @@ class WritingPromptController extends Controller
         return 'false';
     }
 
-    public function clear(Request $request) {
+    public function clear(Request $request)
+    {
         if (isset($request->submission_id) && isset($request->program_id)) {
             $wp = WritingPrompt::where('submission_id', $request->submission_id)
                 ->where('program_id', $request->program_id)
-                ->first();           
+                ->first();
             if (isset($wp)) {
                 $wp_id = $wp->id;
                 unset($wp['id']);
@@ -172,7 +169,7 @@ class WritingPromptController extends Controller
                     foreach ($wp_detail as $value) {
                         unset($value['id']);
                         unset($value['updated_at']);
-                        unset($value['created_at']); 
+                        unset($value['created_at']);
                         $value['wp_id'] = $wp_log->id;
                         WritingPromptDetailLog::create($value->toArray());
                     }
@@ -186,17 +183,18 @@ class WritingPromptController extends Controller
         return 'false';
     }
 
-    public function print($submission_id=0, $program_id=0) {
-        if ($submission_id!=0 && $program_id!=0) {
+    public function print($submission_id = 0, $program_id = 0)
+    {
+        if ($submission_id != 0 && $program_id != 0) {
             $wp = WritingPrompt::where('submission_id', $submission_id)
                 ->where('program_id', $program_id)
-                ->first(); 
+                ->first();
             if (isset($wp)) {
                 $submission = Submissions::where('id', $submission_id)->first();
                 $program_name = getProgramName($program_id);
                 $submission['program_name'] = $program_name;
                 $wp_detail = WritingPromptDetail::where('wp_id', $wp->id)->get();
-                if (!empty($wp_detail)) { 
+                if (!empty($wp_detail)) {
                     // view()->share('submission',$submission);
                     // view()->share('wp_detail',$wp_detail);
                     // ob_end_clean();
@@ -205,16 +203,15 @@ class WritingPromptController extends Controller
                     // return view('WritingPrompt::writing_sample_print',['wp_detail'=>$wp_detail, 'submission'=>$submission]);
 
                     try {
-                        $pdf = PDF::loadView('WritingPrompt::writing_sample_print',['wp_detail'=>$wp_detail, 'submission'=>$submission]);
-                        return $pdf->download('WritingSample_'.$submission_id.'_'.$program_id.'.pdf');
+                        $pdf = Pdf::loadView('WritingPrompt::writing_sample_print', ['wp_detail' => $wp_detail, 'submission' => $submission]);
+                        return $pdf->download('WritingSample_' . $submission_id . '_' . $program_id . '.pdf');
                     } catch (\Exception $e) {
-                        Session::flash("warning","Something went wrong , Please try again.");
+                        Session::flash("warning", "Something went wrong , Please try again.");
                         return redirect()->back();
                     }
-                }   
+                }
             }
         }
         // return 'false';
     }
-
 }

@@ -7,7 +7,6 @@ use Session;
 
 class Staff extends Model
 {
-    //
     protected $table='staff';
     public $additional = [];
     public $date_fields = [];

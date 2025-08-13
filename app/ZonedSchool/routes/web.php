@@ -1,4 +1,7 @@
 <?php
+
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/ZonedSchool', 'module' => 'ZonedSchool', 'middleware' => ['web'], 'namespace' => 'App\Modules\ZonedSchool\Controllers'], function() {
 		Route::post('/search1', 'ZonedSchoolController@search1');
 });

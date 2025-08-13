@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/GenerateApplicationData','module' => 'GenerateApplicationData', 'middleware' => ['web','auth',"permission"], 'namespace' => 'App\Modules\GenerateApplicationData\Controllers'], function() {
  
     Route::get('/', 'GenerateApplicationDataController@index');

@@ -1,8 +1,9 @@
 <?php
 
-Route::group(['prefix'=>'admin/HeaderFooterConfig','module' => 'HeaderFooter', 'middleware' => ['web'], 'namespace' => 'App\Modules\HeaderFooter\Controllers'], function() {
+use Illuminate\Support\Facades\Route;
 
-		Route::get('/', 'HeaderFooterController@index');
-		Route::post('store', 'HeaderFooterController@save');
+Route::group(['prefix' => 'admin/HeaderFooterConfig', 'module' => 'HeaderFooter', 'middleware' => ['web'], 'namespace' => 'App\Modules\HeaderFooter\Controllers'], function () {
 
+	Route::get('/', 'HeaderFooterController@index');
+	Route::post('store', 'HeaderFooterController@save');
 });

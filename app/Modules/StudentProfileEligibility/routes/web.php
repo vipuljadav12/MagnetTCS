@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/StudentProfileEligibility', 'module' => 'StudentProfileEligibility', 'middleware' => ['web', 'auth','super'], 'namespace' => 'App\Modules\StudentProfileEligibility\Controllers'], function() {
 
 	Route::get('/set_data', 'StudentProfileEligibilityController@setData');

@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/Users','module' => 'Users', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\Users\Controllers'], function() {
     Route::get('/create', 'UsersController@create');
     Route::post('/store', 'UsersController@store');

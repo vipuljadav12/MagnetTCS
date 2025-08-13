@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/Enrollment', 'module' => 'Enrollment', 'middleware' => ['web', 'auth','permission'], 'namespace' => 'App\Modules\Enrollment\Controllers'], function() {
 
     // Route::resource('Enrollment', 'EnrollmentController');

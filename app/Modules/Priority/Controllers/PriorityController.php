@@ -7,17 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Modules\Priority\Models\Priority;
 use App\Modules\Priority\Models\PriorityDetail;
 use App\Modules\District\Models\District;
-use Validator;
-use Session;
 use App\Traits\AuditTrail;
-// use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
 
 class PriorityController extends Controller
 {
     use AuditTrail;
     protected $dynamic_fields;
 
-    public function __construct(){
+    public function __construct()
+    {
         /* District status Field, Field for View, Field for DB */
         /* Note : District status Field is a key in dynamic fields array 
             so, it will be unique.. */
@@ -25,19 +25,18 @@ class PriorityController extends Controller
             'feeder' => ['Feeder', 'feeder'],
             'sibling' => ['Sibling', 'sibling'],
             'magnet_student' => ['Magnet Student', 'magnet_student'],
-            'desegregation_compliance' => ['Majority Race in Home Zone School', 'majority_race_in_home_zone_school'], 
+            'desegregation_compliance' => ['Majority Race in Home Zone School', 'majority_race_in_home_zone_school'],
             'magnet_employee' => ['Magnet Employee', 'magnet_employee'],
             'current_over_new' => ['Current Over New', 'current_over_new'],
-        ]; 
+        ];
     }
 
     public function index()
-    {  
-        if(Session::get('district_id') != 0){
+    {
+        if (Session::get('district_id') != 0) {
             $priorities = Priority::where('district_id', session('district_id'))
                 ->where('status', '!=', 'T');
-        } 
-        else{
+        } else {
             $priorities = Priority::where('status', '!=', 'T');
         }
         $priorities = $priorities->orderBy('created_at', 'desc')->get();
@@ -45,8 +44,8 @@ class PriorityController extends Controller
     }
 
     public function create()
-    {   
-        if(Session('district_id')!=0){
+    {
+        if (Session('district_id') != 0) {
             $dynamic_fields = $this->dynamic_fields;
             $district = District::where('id', Session("district_id"))
                 ->first(array_keys($dynamic_fields));
@@ -60,7 +59,7 @@ class PriorityController extends Controller
      */
     public function getCheckboxBooleanValue($key, $value)
     {
-        if(isset($value) && array_key_exists($key,$value)){
+        if (isset($value) && array_key_exists($key, $value)) {
             return 1;
         }
         return 0;
@@ -78,20 +77,20 @@ class PriorityController extends Controller
         $blank = 0;
         $combinatios = [];
         $district = District::where('id', Session("district_id"))
-                ->first(array_keys($this->dynamic_fields));
+            ->first(array_keys($this->dynamic_fields));
 
-        foreach($request->description as $key=>$val){
+        foreach ($request->description as $key => $val) {
             // creating combination
             $combination[$key] = '';
-            foreach ($this->dynamic_fields as $field=>$value1) {
+            foreach ($this->dynamic_fields as $field => $value1) {
                 if (isset($district->{$field}) && $district->{$field} == 'Yes') {
-                    $combination[$key] .= $this->getCheckboxBooleanValue($key,$request->{$value1[1]});
+                    $combination[$key] .= $this->getCheckboxBooleanValue($key, $request->{$value1[1]});
                 }
             }
             // Find redundant entries
             if ($combination[$key] != '') {
-                if(array_search($combination[$key], $combinatios)){
-                    $redundant[] = $key; 
+                if (array_search($combination[$key], $combinatios)) {
+                    $redundant[] = $key;
                 }
             }
             // Blank entries
@@ -103,43 +102,41 @@ class PriorityController extends Controller
             //     $blank++;
             // }
             $combinatios = $combination;
-        } 
-        if(isset($redundant)){
+        }
+        if (isset($redundant)) {
             return 0;
-        }  
+        }
         return 1;
     }
 
-    public function setDetails($id, $request){
+    public function setDetails($id, $request)
+    {
         $priority_id = $id;
         $priority_detail = array();
 
-        foreach ($this->dynamic_fields as $field=>$value) {
-            if(isset($request->{$value[1]}))
-                ${$value[1].'Keys'} = array_keys($request->{$value[1]});
+        foreach ($this->dynamic_fields as $field => $value) {
+            if (isset($request->{$value[1]}))
+                ${$value[1] . 'Keys'} = array_keys($request->{$value[1]});
             else
-                ${$value[1].'Keys'} = array();
+                ${$value[1] . 'Keys'} = array();
         }
 
         PriorityDetail::where('priority_id', $priority_id)->delete();
 
-        foreach($request->description as $key=>$val){                
+        foreach ($request->description as $key => $val) {
             // $id = ['id' => $request->priority_detail_id[$key]];
             $priority_detail['priority_id'] = $priority_id;
 
-            if(isset($request->description[$key])){
+            if (isset($request->description[$key])) {
                 $priority_detail['description'] = $request->description[$key];
-            }
-            else{
+            } else {
                 $priority_detail['description'] = '';
             }
 
-            foreach ($this->dynamic_fields as $field=>$value) {
-                if(count(${$value[1].'Keys'}) > 0 && in_array($key, ${$value[1].'Keys'}))
-                {
+            foreach ($this->dynamic_fields as $field => $value) {
+                if (count(${$value[1] . 'Keys'}) > 0 && in_array($key, ${$value[1] . 'Keys'})) {
                     $priority_detail[$value[1]] = 'Y';
-                }
-                else{
+                } else {
                     $priority_detail[$value[1]] = 'N';
                 }
             }
@@ -161,11 +158,10 @@ class PriorityController extends Controller
     }
 
     public function store(Request $request)
-    {       
-        // return $request;
-        Validator::extend('unique_priority', function($attribute, $value, $parameters) {
+    {
+        Validator::extend('unique_priority', function ($attribute, $value, $parameters) {
             $priority = Priority::where('name', $value)->where('district_id', Session('district_id'))->first();
-            if(!isset($priority)){
+            if (!isset($priority)) {
                 return true;
             }
             return false;
@@ -185,27 +181,25 @@ class PriorityController extends Controller
         // check redundant entries
         $redundant = $this->checkRedundancy($request);
         // return $redundant;
-        if($redundant==1){
+        if ($redundant == 1) {
             $priority = Priority::create([
                 'district_id' => Session("district_id"),
                 'name' => $request->name,
             ]);
 
-            if(isset($priority)){
+            if (isset($priority)) {
                 // Creating details for new priority
                 $store_details = $this->setDetails($priority->id, $request);
-                
+
                 session()->flash('success', 'Priority added successfully.');
                 if (isset($request->save_exit))
                     return redirect('admin/Priority');
                 else
-                    return redirect("admin/Priority/edit/".$priority->id);
-            }
-            else{
+                    return redirect("admin/Priority/edit/" . $priority->id);
+            } else {
                 session()->flash('error', 'Priority not added.');
             }
-        }
-        else{
+        } else {
             session()->flash('error', 'Do not enter redundant or more than one blank priorities.');
         }
         return redirect('admin/Priority/create');
@@ -214,24 +208,23 @@ class PriorityController extends Controller
     public function updateStatus(Request $request)
     {
         $update_status = Priority::where('id', $request->id)->update(['status' => $request->status]);
-        if(isset($update_status)){
+        if (isset($update_status)) {
             return 'true';
-        } 
+        }
         return 'false';
     }
 
     public function checkName(Request $request)
-    {   
+    {
         $priority = Priority::where('name', $request->name)
             ->where("district_id", Session('district_id'))
             ->first();
-        if(!isset($priority)){
+        if (!isset($priority)) {
             return 'true';
-        } 
-        elseif($priority->id==$request->id){
+        } elseif ($priority->id == $request->id) {
             return 'true';
         }
-        return 'false'; 
+        return 'false';
     }
 
     public function edit($id)
@@ -242,25 +235,24 @@ class PriorityController extends Controller
         $priority_details = PriorityDetail::where('priority_id', $id)->get();
         $dynamic_fields = $this->dynamic_fields;
         $district = District::where('id', Session("district_id"))
-                ->first(array_keys($dynamic_fields));
+            ->first(array_keys($dynamic_fields));
         return view('Priority::edit', compact('priority', 'priority_details', 'id', 'dynamic_fields', 'district'));
     }
 
     public function update(Request $request)
-    {   
+    {
         // return $request;
-        Validator::extend('unique_priority', function($attribute, $value, $parameters) {
+        Validator::extend('unique_priority', function ($attribute, $value, $parameters) {
             $priority = Priority::where('name', $value)->where('district_id', Session('district_id'))->first();
-            if(!isset($priority)){
+            if (!isset($priority)) {
                 return true;
-            } 
-            elseif(isset($parameters[0]) && $parameters[0]==$priority->id){
+            } elseif (isset($parameters[0]) && $parameters[0] == $priority->id) {
                 return true;
             }
-            return false; 
-        }); 
+            return false;
+        });
         $rules = [
-            'name' => 'required|string|max:30|unique_priority:'.$request->id,
+            'name' => 'required|string|max:30|unique_priority:' . $request->id,
             'description.*' => 'required|string|max:50',
         ];
         $messages = [
@@ -274,7 +266,7 @@ class PriorityController extends Controller
         // check redundant entries
         $redundant = $this->checkRedundancy($request);
 
-        if($redundant == 1){
+        if ($redundant == 1) {
             $initObj = Priority::where('id', $request->id)->first();
             $priority = Priority::where('id', $request->id)
                 ->update([
@@ -282,49 +274,44 @@ class PriorityController extends Controller
                 ]);
             $newObj = Priority::where('id', $request->id)->first();
 
-            if(isset($priority)){
+            if (isset($priority)) {
                 // Updating or Creating priorities
-                $this->modelChanges($initObj,$newObj,"priority");
+                $this->modelChanges($initObj, $newObj, "priority");
 
                 $update = $this->setDetails($request->id, $request);
 
                 session()->flash('success', 'Priority updated successfully.');
-                if (isset($request->save_exit))
-                {
+                if (isset($request->save_exit)) {
                     return redirect('admin/Priority');
                 }
-            }
-            else{
+            } else {
                 session()->flash('error', 'Priority not updated.');
             }
-        }
-        else{
+        } else {
             session()->flash('error', 'Do not enter redundant or more than one blank priorities.');
         }
         // return redirect()->back();
-        return redirect("admin/Priority/edit/".$request->id);
+        return redirect("admin/Priority/edit/" . $request->id);
     }
 
     public function delete($id)
-    {   
+    {
         $priority_status = Priority::where('id', $id)
             ->update(['status' => 'T']);
-        if(isset($priority_status)){
-            session()->flash('success', "Priority deleted successfully"); 
-        }
-        else{
+        if (isset($priority_status)) {
+            session()->flash('success', "Priority deleted successfully");
+        } else {
             session()->flash('error', "Priority not deleted");
         }
         return redirect('admin/Priority');
     }
 
     public function showTrash()
-    {   
-        if(Session::get('district_id') != 0){
+    {
+        if (Session::get('district_id') != 0) {
             $priorities = Priority::where('district_id', session('district_id'))
                 ->where('status', 'T');
-        } 
-        else{
+        } else {
             $priorities = Priority::where('status', 'T');
         }
         $priorities = $priorities->orderBy('created_at', 'desc')->get();
@@ -332,13 +319,12 @@ class PriorityController extends Controller
     }
 
     public function restoreFromTrash($id)
-    {   
+    {
         $priority_status = Priority::where('id', $id)
             ->update(['status' => 'Y']);
-        if(isset($priority_status)){
-            session()->flash('success', "Priority restored successfully"); 
-        }
-        else{
+        if (isset($priority_status)) {
+            session()->flash('success', "Priority restored successfully");
+        } else {
             session()->flash('error', "Priority not restored");
         }
         return redirect('admin/Priority/trash');

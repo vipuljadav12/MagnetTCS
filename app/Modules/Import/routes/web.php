@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/import','module' => 'Import', 'middleware' => ['web','auth'], 'namespace' => 'App\Modules\Import\Controllers'], function() {
 
     Route::get('/gifted_students', 'ImportController@importGiftedStudents');

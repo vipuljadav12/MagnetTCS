@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use Auth;
 use Illuminate\Support\Facades\URL;
 use App\AuditTrail;
+use Illuminate\Support\Facades\Auth;
 
 class FilterAll
 {
@@ -20,7 +20,7 @@ class FilterAll
     {
         // dd(AuditTrail::all());
         $response = $next($request);
-        $data["user_id"] = isset(Auth::user()->id) ? Auth::user()->id : null ;
+        $data["user_id"] = isset(Auth::user()->id) ? Auth::user()->id : null;
         $data["previous_url"] = URL::previous();
         $data["path"] = $request->path();
         $data["method"] = $request->method();
@@ -44,7 +44,7 @@ class FilterAll
         // dd(Auth::user());
         // exit;  
         // throw new   \Exception("Error Processing Request", 1);
-          
+
         return $next($request);
     }
 }

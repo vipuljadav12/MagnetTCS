@@ -7,12 +7,11 @@ use App\Modules\Eligibility\Models\EligibilityTemplate;
 use App\Modules\Eligibility\Models\EligibilityContent;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Session;
-use View;
+use Illuminate\Support\Facades\View;
 
 class SetEligibiltyController extends Controller
 {
-
+    protected $url;
     /**
      * Display a listing of the resource.
      *
@@ -21,7 +20,7 @@ class SetEligibiltyController extends Controller
     public function __construct()
     {
         $this->url = url("admin/Eligibility/set");
-        View::share(["module_url"=>$this->url]);
+        View::share(["module_url" => $this->url]);
     }
     public function index()
     {

@@ -5,8 +5,6 @@ namespace App\Modules\Submissions\Models;
 use Illuminate\Database\Eloquent\Model;
 
 class LateSubmissionFinalStatus extends Model {
-
-    //
     protected $table='late_submissions_final_status';
     public $primaryKey='id';
     public $fillable=[

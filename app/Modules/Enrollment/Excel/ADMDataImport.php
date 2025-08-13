@@ -12,7 +12,7 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use App\Modules\Enrollment\Models\ADMData;
 use App\Modules\Enrollment\Models\Enrollment;
 use App\Modules\School\Models\School;
-use Session;
+use Illuminate\Support\Facades\Session;
 
 class ADMDataImport implements ToCollection,WithBatchInserts,WithHeadingRow,SkipsOnFailure
 {

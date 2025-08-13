@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/DistrictConfiguration', 'module' => 'DistrictConfiguration', 'middleware' => ['web', 'auth'], 'namespace' => 'App\Modules\DistrictConfiguration\Controllers'], function() {
 
 	Route::get('/', 'DistrictConfigurationController@index');

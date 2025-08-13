@@ -3,7 +3,6 @@
 
 namespace App\Modules\Import\ExportFiles;
 
-
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -22,7 +21,6 @@ class ImportTestScoreErrorExport implements FromCollection, WithHeadings, Should
 
     public function collection()
     {
-        //dd($this->data['data']);
         return $this->data['data'];
     }
 
@@ -35,7 +33,7 @@ class ImportTestScoreErrorExport implements FromCollection, WithHeadings, Should
         //         $headings[] = ucwords(str_replace('_', ' ', $key));
         //     }
         // } else {
-            $headings = ['SSID', 'First Name', 'Last Name', 'Grade', 'Reading Test NPR', 'Math Test NPR', 'Error'];
+        $headings = ['SSID', 'First Name', 'Last Name', 'Grade', 'Reading Test NPR', 'Math Test NPR', 'Error'];
         // }
         return $headings;
     }

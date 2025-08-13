@@ -31,7 +31,7 @@ class StudentsProfileExport implements FromCollection, WithHeadings, ShouldAutoS
         $headings = [];
         if (isset($this->data['data']) && (count($this->data['data']) > 0)) {
             $row = $this->data['data']->first();
-            foreach($row as $key => $val) {
+            foreach ($row as $key => $val) {
                 $headings[] = ucwords(str_replace('_', ' ', $key));
             }
         }

@@ -1,4 +1,7 @@
 <?php
+
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/SetEligibility','module' => 'SetEligibility', 'middleware' => ['web','auth','permission'], 'namespace' => 'App\Modules\SetEligibility\Controllers'], function() {
 
     Route::get('/edit/{id}', 'SetEligibilityController@edit');

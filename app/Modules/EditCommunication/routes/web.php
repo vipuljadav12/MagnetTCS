@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix'=>'admin/EditCommunication','module' => 'EditCommunication', 'middleware' => ['web','auth','permission'], 'namespace' => 'App\Modules\EditCommunication\Controllers'], function() {
 
     Route::get('/','EditCommunicationController@application_index');

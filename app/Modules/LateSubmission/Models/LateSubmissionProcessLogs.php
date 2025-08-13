@@ -4,13 +4,12 @@ namespace App\Modules\LateSubmission\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class LateSubmissionProcessLogs extends Model {
-
-    //
-    protected $table='late_submission_process_logs';
-    public $primaryKey='id';
-    public $fillable=[
-    	'process_log_id',
+class LateSubmissionProcessLogs extends Model
+{
+    protected $table = 'late_submission_process_logs';
+    public $primaryKey = 'id';
+    public $fillable = [
+        'process_log_id',
         'program_id',
         'grade',
         'enrollment_id',
@@ -29,6 +28,5 @@ class LateSubmissionProcessLogs extends Model {
         'slots_to_awards',
         'generated_by',
         'homezone'
-   	];
-
+    ];
 }

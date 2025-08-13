@@ -4,11 +4,10 @@ namespace App\Modules\Import\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class GiftedStudents extends Model {
-
-   
+class GiftedStudents extends Model
+{
     protected $table = 'agt_students';
-    
+
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -24,5 +23,4 @@ class GiftedStudents extends Model {
         'enrichment_student',
         'district_id',
     ];
-
 }

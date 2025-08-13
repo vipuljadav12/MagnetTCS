@@ -12,15 +12,15 @@ use App\Modules\Priority\Models\Priority;
 use App\Modules\Priority\Models\PriorityDetail;
 use App\Modules\Form\Models\Form;
 use App\Modules\Application\Models\Application;
-use Session;
-use DB;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\School\Models\School;
 use App\Traits\AuditTrail;
 use App\Modules\Submissions\Models\RecommendationException;
 use App\Modules\Submissions\Models\ProgramChoiceException;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
 
 class ProgramController extends Controller
 {
@@ -31,13 +31,13 @@ class ProgramController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function index()
-    { 
+    {
 
-        if(\Session::get("district_id") != '0')
-            $programs=Program::where('status','!=','T')->where('district_id', \Session::get('district_id'))->where('enrollment_id', \Session::get('enrollment_id'))->get();
+        if (Session::get("district_id") != '0')
+            $programs = Program::where('status', '!=', 'T')->where('district_id', Session::get('district_id'))->where('enrollment_id', Session::get('enrollment_id'))->get();
         else
-            $programs=Program::where('status','!=','T')->where('enrollment_id', \Session::get('enrollment_id'))->get();
-        return view("Program::index",compact('programs'));
+            $programs = Program::where('status', '!=', 'T')->where('enrollment_id', Session::get('enrollment_id'))->get();
+        return view("Program::index", compact('programs'));
     }
 
     /**
@@ -52,35 +52,31 @@ class ProgramController extends Controller
         $programs = Program::where("district_id", Session::get("district_id"))->where("enrollment_id", Session::get("enrollment_id"))->where("status", "Y")->get();
 
         $priorities = Priority::where('district_id', session('district_id'))->where('status', '!=', 'T')->get();
-          $schools = School::where("district_id", Session::get("district_id"))->orderBy('name')->select(DB::raw("DISTINCT(name)"))->get();
-        
-     
-        $eligibility_templates=EligibilityTemplate::all();
-        $eligibility_types=Eligibility::where('status','Y')->get();
-     
-        $magnet_priority_count = PriorityDetail::where("magnet_student", "Y")->join("priorities","priorities.id","priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+        $schools = School::where("district_id", Session::get("district_id"))->orderBy('name')->select(DB::raw("DISTINCT(name)"))->get();
 
-        $sibling_priority_count = PriorityDetail::where("sibling", "Y")->join("priorities","priorities.id","priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
 
-        $feeder_priority_count = PriorityDetail::where("feeder", "Y")->join("priorities","priorities.id","priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+        $eligibility_templates = EligibilityTemplate::all();
+        $eligibility_types = Eligibility::where('status', 'Y')->get();
 
-        $eligibilities=null;
-        foreach ($eligibility_templates as $k=>$eligibility_template)
-        {
-            $eligibility=null;
-            foreach ($eligibility_types as $key=>$eligibility_type)
-            {
-                if ($eligibility_template->id==$eligibility_type->template_id)
-                {
-                    $eligibility[]=$eligibility_type;
+        $magnet_priority_count = PriorityDetail::where("magnet_student", "Y")->join("priorities", "priorities.id", "priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+
+        $sibling_priority_count = PriorityDetail::where("sibling", "Y")->join("priorities", "priorities.id", "priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+
+        $feeder_priority_count = PriorityDetail::where("feeder", "Y")->join("priorities", "priorities.id", "priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+
+        $eligibilities = null;
+        foreach ($eligibility_templates as $k => $eligibility_template) {
+            $eligibility = null;
+            foreach ($eligibility_types as $key => $eligibility_type) {
+                if ($eligibility_template->id == $eligibility_type->template_id) {
+                    $eligibility[] = $eligibility_type;
                 }
             }
-            if ($eligibility!=null)
-            {
-                $eligibilities[]=array_merge($eligibility_template->toArray(),array('eligibility_types'=>$eligibility));
+            if ($eligibility != null) {
+                $eligibilities[] = array_merge($eligibility_template->toArray(), array('eligibility_types' => $eligibility));
             }
         }
-        return view('Program::create',compact('eligibilities','priorities','schools','forms','magnet_priority_count', 'sibling_priority_count', 'feeder_priority_count', "programs"));
+        return view('Program::create', compact('eligibilities', 'priorities', 'schools', 'forms', 'magnet_priority_count', 'sibling_priority_count', 'feeder_priority_count', "programs"));
     }
 
     /**
@@ -91,134 +87,113 @@ class ProgramController extends Controller
      */
     public function store(Request $request)
     {
-       // return $request;
-        $msg=['priority.required'=>'The priority field is required. ','grade_lavel.required'=>'The grade lavel field is required.','applicant_filter1.required'=>'The Applicant Group Filter 1 is required. '];
+        // return $request;
+        $msg = ['priority.required' => 'The priority field is required. ', 'grade_lavel.required' => 'The grade lavel field is required.', 'applicant_filter1.required' => 'The Applicant Group Filter 1 is required. '];
         $request->validate([
-            'name'=>'required|max:255',
-           // 'applicant_filter1'=>'required|max:255',
-             'applicant_filter1'=>'max:255',
-            'applicant_filter2'=>'max:255',
-            'applicant_filter3'=>'max:255',
-            'grade_lavel'=>'required',
-            'parent_submission_form'=>'required',
+            'name' => 'required|max:255',
+            // 'applicant_filter1'=>'required|max:255',
+            'applicant_filter1' => 'max:255',
+            'applicant_filter2' => 'max:255',
+            'applicant_filter3' => 'max:255',
+            'grade_lavel' => 'required',
+            'parent_submission_form' => 'required',
 
-        ],$msg);
-        $currentdate=date("Y-m-d h:m:s", time());
-        $priority='';
-        $grade_lavel='';
-        if (isset($request->priority))
-        {
-            foreach ($request->priority as $key=>$value)
-            {
-                if ($key==0)
-                {
-                    $priority=$value;
+        ], $msg);
+        $currentdate = date("Y-m-d h:m:s", time());
+        $priority = '';
+        $grade_lavel = '';
+        if (isset($request->priority)) {
+            foreach ($request->priority as $key => $value) {
+                if ($key == 0) {
+                    $priority = $value;
                     continue;
                 }
-                $priority=$priority.','.$value;
+                $priority = $priority . ',' . $value;
             }
         }
-        if (isset($request->grade_lavel))
-        {
-            foreach ($request->grade_lavel as $key=>$value)
-            {
-                if ($key==0)
-                {
-                    $grade_lavel=$value;
+        if (isset($request->grade_lavel)) {
+            foreach ($request->grade_lavel as $key => $value) {
+                if ($key == 0) {
+                    $grade_lavel = $value;
                     continue;
                 }
-                $grade_lavel=$grade_lavel.','.$value;
+                $grade_lavel = $grade_lavel . ',' . $value;
             }
         }
 
-        if(isset($request->feeder_priorities) && !empty($request->feeder_priorities)){
+        if (isset($request->feeder_priorities) && !empty($request->feeder_priorities)) {
             $feeder_priorities = implode(',', $request->feeder_priorities);
-        }
-        else
-        {
+        } else {
             $feeder_priorities = "";
         }
 
-        if(isset($request->magnet_priorities) && !empty($request->magnet_priorities)){
+        if (isset($request->magnet_priorities) && !empty($request->magnet_priorities)) {
             $magnet_priorities = implode(',', $request->magnet_priorities);
-        }
-        else
-        {
+        } else {
             $magnet_priorities = "";
         }
 
-        if(isset($request->sibling_schools) && !empty($request->sibling_schools)){
+        if (isset($request->sibling_schools) && !empty($request->sibling_schools)) {
             $sibling_schools = implode(',', $request->sibling_schools);
-        }
-        else
-        {
+        } else {
             $sibling_schools = "";
         }
 
         /* Here code to save feeder field */
         $feeder_field = $request->feeder_field;
-        if($feeder_field == "upload")
-        {
+        if ($feeder_field == "upload") {
             $feeder_priorities = "";
-            if(isset($request->upload_program_check) && !empty($request->upload_program_check))
-            {
-                $upload_program_check = implode(",", $request->upload_program_check); 
+            if (isset($request->upload_program_check) && !empty($request->upload_program_check)) {
+                $upload_program_check = implode(",", $request->upload_program_check);
+            } else {
+                $upload_program_check = "";
             }
-            else
-            {
-                $upload_program_check = ""; 
-            }
-        }
-        else
-        {
+        } else {
             $upload_program_check = "";
         }
 
-        $programdata=[
-            'district_id'=>Session::get("district_id"),
-            'name'=>$request->name,
+        $programdata = [
+            'district_id' => Session::get("district_id"),
+            'name' => $request->name,
             'enrollment_id' => Session::get("enrollment_id"),
-            'applicant_filter1'=>$request->applicant_filter1,
-            'applicant_filter2'=>$request->applicant_filter2,
-            'applicant_filter3'=>$request->applicant_filter3,
-            'grade_lavel'=>$grade_lavel,
+            'applicant_filter1' => $request->applicant_filter1,
+            'applicant_filter2' => $request->applicant_filter2,
+            'applicant_filter3' => $request->applicant_filter3,
+            'grade_lavel' => $grade_lavel,
             'feeder_field' => $feeder_field,
             'upload_program_check' => $upload_program_check,
-            'parent_submission_form'=>$request->parent_submission_form,
+            'parent_submission_form' => $request->parent_submission_form,
             'magnet_school' => $request->magnet_school,
-            'sibling_enabled' => $request->sibling_enabled=='on'?'Y':'N',
-            'silbling_check' => $request->silbling_check=='on'?'Y':'N',
-            'existing_magnet_program_alert' => $request->existing_magnet_program_alert=='on'?'Y':'N',
-            'priority'=>$priority,
+            'sibling_enabled' => $request->sibling_enabled == 'on' ? 'Y' : 'N',
+            'silbling_check' => $request->silbling_check == 'on' ? 'Y' : 'N',
+            'existing_magnet_program_alert' => $request->existing_magnet_program_alert == 'on' ? 'Y' : 'N',
+            'priority' => $priority,
             'sibling_schools' => $sibling_schools,
             'feeder_priorities' => $feeder_priorities,
             'magnet_priorities' => $magnet_priorities,
-            'created_at'=>$currentdate,
-            'updated_at'=>$currentdate
+            'created_at' => $currentdate,
+            'updated_at' => $currentdate
         ];
 
-        $programresult=Program::create($programdata);
+        $programresult = Program::create($programdata);
         if (isset($programresult)) {
-            $prog_data = Program::where('id',$programresult->id)->first();
-            $this->modelCreate($prog_data,"program");
+            $prog_data = Program::where('id', $programresult->id)->first();
+            $this->modelCreate($prog_data, "program");
             Session::flash("success", "Program data added successfully.");
         } else {
             Session::flash("error", "Please Try Again.");
         }
-        
-        if (isset($request->save_exit))
-        {
-           // return 'edit';
-            return redirect('admin/Program/');
 
-            
+        if (isset($request->save_exit)) {
+            // return 'edit';
+            return redirect('admin/Program/');
         }
-        return redirect('admin/Program/edit/'.$programresult->id);
-       // return redirect('admin/Program');
+        return redirect('admin/Program/edit/' . $programresult->id);
+        // return redirect('admin/Program');
 
     }
 
-    public function edit($id, $application_id=0)
+    public function edit($id, $application_id = 0)
     {
         $req = request()->all();
         $exception_choice = '';
@@ -227,111 +202,96 @@ class ProgramController extends Controller
         }
 
         $applications = Application::where("enrollment_id", Session::get("enrollment_id"))->get();
-        $programeligibilities=ProgramEligibility::where('program_id',$id)->first();
-        if(!empty($programeligibilities)  && $application_id == 0)
-        {
+        $programeligibilities = ProgramEligibility::where('program_id', $id)->first();
+        if (!empty($programeligibilities)  && $application_id == 0) {
             $application_id = $programeligibilities->application_id;
         }
-        if($application_id == 0)
-        {
-            if(count($applications) > 0)
+        if ($application_id == 0) {
+            if (count($applications) > 0)
                 $application_id = $applications[0]->id;
         }
-        
+
         $programs = Program::where("district_id", Session::get("district_id"))->where("enrollment_id", Session::get("enrollment_id"))->where("status", "Y")->get();
 
         $forms = Form::where("district_id", Session::get("district_id"))->get();
-        $district=District::where('id',session('district_id'))->first();
+        $district = District::where('id', session('district_id'))->first();
 
-        $priorities = Priority::where('district_id',Session::get('district_id'))->where('status', '!=', 'T')->get();
+        $priorities = Priority::where('district_id', Session::get('district_id'))->where('status', '!=', 'T')->get();
         $schools = School::where("district_id", Session::get("district_id"))->orderBy('name')->select(DB::raw("DISTINCT(name)"))->get();
-      
-        $magnet_priority_count = PriorityDetail::where("magnet_student", "Y")->join("priorities","priorities.id","priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
 
-        $sibling_priority_count = PriorityDetail::where("sibling", "Y")->join("priorities","priorities.id","priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+        $magnet_priority_count = PriorityDetail::where("magnet_student", "Y")->join("priorities", "priorities.id", "priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
 
-        $feeder_priority_count = PriorityDetail::where("feeder", "Y")->join("priorities","priorities.id","priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
-  
+        $sibling_priority_count = PriorityDetail::where("sibling", "Y")->join("priorities", "priorities.id", "priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+
+        $feeder_priority_count = PriorityDetail::where("feeder", "Y")->join("priorities", "priorities.id", "priority_details.priority_id")->where("priorities.enrollment_id", Session::get("enrollment_id"))->where("priorities.status", "Y")->count();
+
         //$schools = DB::table("student")->select(DB::raw("DISTINCT(current_school)"))->get();
         //print_r($schools);exit;
-        
+
         //return $priorities;
-        $program=Program::where('id',$id)->first();
-        
+        $program = Program::where('id', $id)->first();
 
 
-        $programeligibilities=ProgramEligibility::where('program_id',$id)->where("application_id", $application_id)->get()->keyBy('id');
+
+        $programeligibilities = ProgramEligibility::where('program_id', $id)->where("application_id", $application_id)->get()->keyBy('id');
         // return $programeligibilities;
-        
-        $eligibility_templates=EligibilityTemplate::all()->toArray();
+
+        $eligibility_templates = EligibilityTemplate::all()->toArray();
         // $eligibility_templates[] = array("id"=>0,"name"=>"Template 2");
-        $eligibility_types=Eligibility::where('status','Y')->where('district_id', Session::get('district_id'))->where('enrollment_id', Session::get('enrollment_id'))->get();
-        $eligibilities=null;
-        foreach ($eligibility_templates as $k=>$eligibility_template)
-        {
+        $eligibility_types = Eligibility::where('status', 'Y')->where('district_id', Session::get('district_id'))->where('enrollment_id', Session::get('enrollment_id'))->get();
+        $eligibilities = null;
+        foreach ($eligibility_templates as $k => $eligibility_template) {
             // return $eligibility_template;
-            $eligibility=null;
+            $eligibility = null;
             $exist_ids = [];
-            for ($i=0; $i < $eligibility_template['max_count']; $i++) { 
-                foreach ($eligibility_types as $key=>$eligibility_type)
-                {
-                    if ($eligibility_template['id']==$eligibility_type->template_id && !in_array($eligibility_type->id, $exist_ids))
-                    {
-                        
-                        $eligibility[]=$eligibility_type;
+            for ($i = 0; $i < $eligibility_template['max_count']; $i++) {
+                foreach ($eligibility_types as $key => $eligibility_type) {
+                    if ($eligibility_template['id'] == $eligibility_type->template_id && !in_array($eligibility_type->id, $exist_ids)) {
+
+                        $eligibility[] = $eligibility_type;
                         $exist_ids[] = $eligibility_type->id;
                     }
                     /*if($eligibility_type->template_id == 0){
                         $eligibility[]=$eligibility_type;
                     }*/
-
                 }
-                if ($eligibility!=null)
-                {
-                    $eligibilities[]=array_merge($eligibility_template,array('eligibility_types'=>$eligibility));
+                if ($eligibility != null) {
+                    $eligibilities[] = array_merge($eligibility_template, array('eligibility_types' => $eligibility));
                 }
             }
         }
-      //  return $eligibilities;
+        //  return $eligibilities;
         $et = EligibilityTemplate::where('name', 'Recommendation Form')->where('status', 'Y')->first(['id']);
         // return [$et, $programeligibilities, $eligibilities];
         $rec_form_data['status'] = false;
 
-        if(!empty($eligibilities))
-        {
+        if (!empty($eligibilities)) {
             $existArr = [];
-            foreach ($eligibilities as $key=>$eligibility)
-            {
-                foreach ($programeligibilities as $k=>$programeligibility)
-                {
-                    if ($programeligibility->eligibility_type==$eligibility['id'] && !isset($eligibilities[$key]['program_eligibility']))
-                    {
+            foreach ($eligibilities as $key => $eligibility) {
+                foreach ($programeligibilities as $k => $programeligibility) {
+                    if ($programeligibility->eligibility_type == $eligibility['id'] && !isset($eligibilities[$key]['program_eligibility'])) {
                         // Check for recommendation form eligibility
-                            
+
                         if (isset($et->id)) {
-                            if ( ($et->id == $programeligibility->eligibility_type) &&
+                            if (($et->id == $programeligibility->eligibility_type) &&
                                 ($programeligibility->assigned_eigibility_name != '')
-                            ) { 
+                            ) {
                                 $rec_form_data['eligibility_id'] = $programeligibility->assigned_eigibility_name;
                                 $rec_form_data['status'] = true;
                             }
                         }
                         $newdata = $this->fetch_another_eligibility((isset($existArr[$eligibility['id']]) ? $existArr[$eligibility['id']] : []), $programeligibilities, $eligibility['id']);
-                        if(!empty($newdata))
-                        {
-                            $eligibilities[$key]['program_eligibility']=$newdata;
+                        if (!empty($newdata)) {
+                            $eligibilities[$key]['program_eligibility'] = $newdata;
                             $existArr[$eligibility['id']][] = $newdata->assigned_eigibility_name;
                         }
-
                     }
                 }
-                
             }
-        }
-        else
+        } else
             $eligibilities = array();
 
-         //dd($existArr);
+        //dd($existArr);
 
         // Exception
         $rec_form_data['data'] = [];
@@ -357,20 +317,16 @@ class ProgramController extends Controller
             // Program Choice
             $rec_form_data['data'] = ProgramChoiceException::where('program_id', $id)->get(['grade', 'display_name']);
         }
-        return view('Program::edit',compact('program','eligibilities','priorities','district','schools','forms', 'rec_form_data', 'exception_choice', 'magnet_priority_count', 'sibling_priority_count', 'feeder_priority_count', 'programs', "applications", "application_id"));
+        return view('Program::edit', compact('program', 'eligibilities', 'priorities', 'district', 'schools', 'forms', 'rec_form_data', 'exception_choice', 'magnet_priority_count', 'sibling_priority_count', 'feeder_priority_count', 'programs', "applications", "application_id"));
     }
 
     public function fetch_another_eligibility($existArr, $program_eligibility, $id)
     {
-        foreach($program_eligibility as $k=>$v)
-        {
-            if ($v->eligibility_type==$id)
-            {
-                if(!in_array($v->assigned_eigibility_name, $existArr))
-                {
+        foreach ($program_eligibility as $k => $v) {
+            if ($v->eligibility_type == $id) {
+                if (!in_array($v->assigned_eigibility_name, $existArr)) {
                     return $v;
                 }
-
             }
         }
         return [];
@@ -385,156 +341,134 @@ class ProgramController extends Controller
      */
     public function update(Request $request, $id)
     {
-//        echo "T";exit;
-         $msg=['priority.required'=>'The priority field is required. ','grade_lavel.required'=>'The grade lavel field is required.','applicant_filter1.required'=>'The Applicant Group Filter 1 is required. '];
+        //        echo "T";exit;
+        $msg = ['priority.required' => 'The priority field is required. ', 'grade_lavel.required' => 'The grade lavel field is required.', 'applicant_filter1.required' => 'The Applicant Group Filter 1 is required. '];
         $request->validate([
-            'name'=>'required|max:255',
-           // 'applicant_filter1'=>'required|max:255',
-             'applicant_filter1'=>'max:255',
-            'applicant_filter2'=>'max:255',
-            'applicant_filter3'=>'max:255',
-            'grade_lavel'=>'required',
-            'parent_submission_form'=>'required',
-        ],$msg);
-        
-        $currentdate=date("Y-m-d h:m:s", time());
-        $priority='';
+            'name' => 'required|max:255',
+            // 'applicant_filter1'=>'required|max:255',
+            'applicant_filter1' => 'max:255',
+            'applicant_filter2' => 'max:255',
+            'applicant_filter3' => 'max:255',
+            'grade_lavel' => 'required',
+            'parent_submission_form' => 'required',
+        ], $msg);
+
+        $currentdate = date("Y-m-d h:m:s", time());
+        $priority = '';
         $grade_lavel = $exclude_grade_lavel = '';
         $remove_eligibility_ids = [];
 
-        if (isset($request->priority))
-        {
-            foreach ($request->priority as $key=>$value)
-            {
-                if ($key==0)
-                {
-                    $priority=$value;
+        if (isset($request->priority)) {
+            foreach ($request->priority as $key => $value) {
+                if ($key == 0) {
+                    $priority = $value;
                     continue;
                 }
-                $priority=$priority.','.$value;
+                $priority = $priority . ',' . $value;
             }
         }
-        if (isset($request->grade_lavel))
-        {
-            foreach ($request->grade_lavel as $key=>$value)
-            {
-                if ($key==0)
-                {
-                    $grade_lavel=$value;
+        if (isset($request->grade_lavel)) {
+            foreach ($request->grade_lavel as $key => $value) {
+                if ($key == 0) {
+                    $grade_lavel = $value;
                     continue;
                 }
-                $grade_lavel=$grade_lavel.','.$value;
+                $grade_lavel = $grade_lavel . ',' . $value;
             }
         }
-        if (isset($request->exclude_grade_lavel) && $request->existing_magnet_program_alert == "on")
-        {
-            foreach ($request->exclude_grade_lavel as $key=>$value)
-            {
-                if ($key==0)
-                {
-                    $exclude_grade_lavel=$value;
+        if (isset($request->exclude_grade_lavel) && $request->existing_magnet_program_alert == "on") {
+            foreach ($request->exclude_grade_lavel as $key => $value) {
+                if ($key == 0) {
+                    $exclude_grade_lavel = $value;
                     continue;
                 }
-                $exclude_grade_lavel=$exclude_grade_lavel.','.$value;
+                $exclude_grade_lavel = $exclude_grade_lavel . ',' . $value;
             }
         }
 
-        if(isset($request->feeder_priorities) && !empty($request->feeder_priorities)){
+        if (isset($request->feeder_priorities) && !empty($request->feeder_priorities)) {
             $feeder_priorities = implode(',', $request->feeder_priorities);
-        }
-        else
-        {
+        } else {
             $feeder_priorities = "";
         }
 
-        if(isset($request->sibling_schools) && !empty($request->sibling_schools)){
+        if (isset($request->sibling_schools) && !empty($request->sibling_schools)) {
             $sibling_schools = implode(',', $request->sibling_schools);
-        }
-        else
-        {
+        } else {
             $sibling_schools = "";
         }
 
-        if(isset($request->magnet_priorities) && !empty($request->magnet_priorities)){
+        if (isset($request->magnet_priorities) && !empty($request->magnet_priorities)) {
             $magnet_priorities = implode(',', $request->magnet_priorities);
-        }
-        else
-        {
+        } else {
             $magnet_priorities = "";
         }
 
         $feeder_field = $request->feeder_field;
-        if($feeder_field == "upload")
-        {
+        if ($feeder_field == "upload") {
             $feeder_priorities = "";
-            if(isset($request->upload_program_check) && !empty($request->upload_program_check))
-            {
-                $upload_program_check = implode(",", $request->upload_program_check); 
+            if (isset($request->upload_program_check) && !empty($request->upload_program_check)) {
+                $upload_program_check = implode(",", $request->upload_program_check);
+            } else {
+                $upload_program_check = "";
             }
-            else
-            {
-                $upload_program_check = ""; 
-            }
-        }
-        else
-        {
+        } else {
             $upload_program_check = "";
         }
 
-        $data=[
-            'name'=>$request->name,
-            'applicant_filter1'=>$request->applicant_filter1,
-            'applicant_filter2'=>$request->applicant_filter2,
-            'applicant_filter3'=>$request->applicant_filter3,
-            'grade_lavel'=>$grade_lavel,
-            'exclude_grade_lavel'=>$exclude_grade_lavel,
-            'parent_submission_form'=>$request->parent_submission_form,
-            'priority'=>$priority,
+        $data = [
+            'name' => $request->name,
+            'applicant_filter1' => $request->applicant_filter1,
+            'applicant_filter2' => $request->applicant_filter2,
+            'applicant_filter3' => $request->applicant_filter3,
+            'grade_lavel' => $grade_lavel,
+            'exclude_grade_lavel' => $exclude_grade_lavel,
+            'parent_submission_form' => $request->parent_submission_form,
+            'priority' => $priority,
             'feeder_field' => $feeder_field,
             'upload_program_check' => $upload_program_check,
-            'current_over_new'=>$request->current_over_new,
-            'committee_score'=>$request->committee_score,
-            'audition_score'=>$request->audition_score,
-            'rating_priority'=>$request->rating_priority,
-            'combine_score'=>$request->combine_score,
-            'final_score'=>$request->final_score,
-            'lottery_number'=>$request->lottery_number,
-            'selection_method'=>$request->selection_method,
-            'selection_by'=>$request->selection_by,
-            'seat_availability_enter_by'=>$request->seat_availability_enter_by,
-            'sibling_enabled' => $request->sibling_enabled=='on'?'Y':'N',
-            'basic_method_only'=>$request->basic_method_only=='on'?'Y':'N',
-            'basic_method_only_ls'=>$request->basic_method_only_ls=='on'?'Y':'N',
-            'combined_scoring'=>$request->combined_scoring=='on'?'Y':'N',
-            'combined_scoring_ls'=>$request->combined_scoring_ls=='on'?'Y':'N',
-            'combined_eligibility'=>$request->combined_eligibility,
-            'combined_eligibility_ls'=>$request->combined_eligibility_ls,
+            'current_over_new' => $request->current_over_new,
+            'committee_score' => $request->committee_score,
+            'audition_score' => $request->audition_score,
+            'rating_priority' => $request->rating_priority,
+            'combine_score' => $request->combine_score,
+            'final_score' => $request->final_score,
+            'lottery_number' => $request->lottery_number,
+            'selection_method' => $request->selection_method,
+            'selection_by' => $request->selection_by,
+            'seat_availability_enter_by' => $request->seat_availability_enter_by,
+            'sibling_enabled' => $request->sibling_enabled == 'on' ? 'Y' : 'N',
+            'basic_method_only' => $request->basic_method_only == 'on' ? 'Y' : 'N',
+            'basic_method_only_ls' => $request->basic_method_only_ls == 'on' ? 'Y' : 'N',
+            'combined_scoring' => $request->combined_scoring == 'on' ? 'Y' : 'N',
+            'combined_scoring_ls' => $request->combined_scoring_ls == 'on' ? 'Y' : 'N',
+            'combined_eligibility' => $request->combined_eligibility,
+            'combined_eligibility_ls' => $request->combined_eligibility_ls,
             'magnet_school' => $request->magnet_school,
-            'created_at'=>$currentdate,
-            'silbling_check' => $request->silbling_check=='on'?'Y':'N',
-            'existing_magnet_program_alert' => $request->existing_magnet_program_alert=='on'?'Y':'N',
+            'created_at' => $currentdate,
+            'silbling_check' => $request->silbling_check == 'on' ? 'Y' : 'N',
+            'existing_magnet_program_alert' => $request->existing_magnet_program_alert == 'on' ? 'Y' : 'N',
             'sibling_schools' => $sibling_schools,
             'feeder_priorities' => $feeder_priorities,
             'magnet_priorities' => $magnet_priorities,
-            'updated_at'=>$currentdate
+            'updated_at' => $currentdate
         ];
 
-       // return $data;
-       // return $request;
-        $initObj = Program::where('id',$id)->first();
-        $result=Program::where('id',$id)->update($data);
-        $newObj = Program::where('id',$id)->first();
+        // return $data;
+        // return $request;
+        $initObj = Program::where('id', $id)->first();
+        $result = Program::where('id', $id)->update($data);
+        $newObj = Program::where('id', $id)->first();
 
-        $this->modelChanges($initObj,$newObj,"program");
+        $this->modelChanges($initObj, $newObj, "program");
 
         $application_id = $request->application_id;
 
-        $remove_eligibility_ids = ProgramEligibility::where('application_id',$request->application_id)->where('program_id',$id)->whereNotIn('assigned_eigibility_name',array_filter($request->assigned_eigibility_name))->pluck('assigned_eigibility_name');
+        $remove_eligibility_ids = ProgramEligibility::where('application_id', $request->application_id)->where('program_id', $id)->whereNotIn('assigned_eigibility_name', array_filter($request->assigned_eigibility_name))->pluck('assigned_eigibility_name');
 
         // return $request;
-        foreach ($request->eligibility_type as $key=>$value) {
-            if($request->assigned_eigibility_name[$key] != '')
-            {
+        foreach ($request->eligibility_type as $key => $value) {
+            if ($request->assigned_eigibility_name[$key] != '') {
                 $grade = null;
                 $eligibilitydata = [
                     'program_id' => $id,
@@ -543,9 +477,9 @@ class ProgramController extends Controller
                     'determination_method' => $request->determination_method[$key],
                     'eligibility_define' => $request->eligibility_define[$key],
                     'assigned_eigibility_name' => $request->assigned_eigibility_name[$key],
-                    'weight' => (isset($request->{"weight".$value}) ? $request->{"weight".$value} : ""),
-                    'grade_lavel_or_recommendation_by' =>'',
-                    'status' => isset($request->status[$value][0])&&$request->status[$value][0] == 'on' ? 'Y' : 'N',
+                    'weight' => (isset($request->{"weight" . $value}) ? $request->{"weight" . $value} : ""),
+                    'grade_lavel_or_recommendation_by' => '',
+                    'status' => isset($request->status[$value][0]) && $request->status[$value][0] == 'on' ? 'Y' : 'N',
                 ];
                 /*if (isset($request->eligibility_grade_lavel[$value]))
                 {
@@ -562,31 +496,29 @@ class ProgramController extends Controller
                 $grade_lavel_or_recommendation_by = trim($grade_lavel_or_recommendation_by, ",");
                 $eligibilitydata['grade_lavel_or_recommendation_by'] = $grade_lavel_or_recommendation_by;
 
-                $avilableeligibility=ProgramEligibility::where("application_id", $application_id)->where('program_id',$id)->where('eligibility_type',$value)->where('application_id', $application_id)->where('assigned_eigibility_name',$request->assigned_eigibility_name[$key])->first();
-                if (isset($avilableeligibility)){
-                    $eligibilityresult=ProgramEligibility::where("application_id", $application_id)->where('program_id',$id)->where('eligibility_type',$value)->where('assigned_eigibility_name',$request->assigned_eigibility_name[$key])->update($eligibilitydata);
-                    $neweligibility=ProgramEligibility::where("application_id", $application_id)->where('program_id',$id)->where('eligibility_type',$value)->where('assigned_eigibility_name',$request->assigned_eigibility_name[$key])->first();
+                $avilableeligibility = ProgramEligibility::where("application_id", $application_id)->where('program_id', $id)->where('eligibility_type', $value)->where('application_id', $application_id)->where('assigned_eigibility_name', $request->assigned_eigibility_name[$key])->first();
+                if (isset($avilableeligibility)) {
+                    $eligibilityresult = ProgramEligibility::where("application_id", $application_id)->where('program_id', $id)->where('eligibility_type', $value)->where('assigned_eigibility_name', $request->assigned_eigibility_name[$key])->update($eligibilitydata);
+                    $neweligibility = ProgramEligibility::where("application_id", $application_id)->where('program_id', $id)->where('eligibility_type', $value)->where('assigned_eigibility_name', $request->assigned_eigibility_name[$key])->first();
 
-                    $this->modelChanges($avilableeligibility,$neweligibility,"program-eligibility");
-    //                return $eligibilityresult;
+                    $this->modelChanges($avilableeligibility, $neweligibility, "program-eligibility");
+                    //                return $eligibilityresult;
+                } else {
+                    $eligibilityresult = ProgramEligibility::create($eligibilitydata);
+                    $elig_data = ProgramEligibility::where('id', $eligibilityresult->id)->first();
+                    $this->modelCreate($elig_data, "program-eligibility");
                 }
-                else{
-                    $eligibilityresult=ProgramEligibility::create($eligibilitydata);
-                    $elig_data = ProgramEligibility::where('id',$eligibilityresult->id)->first();
-                    $this->modelCreate($elig_data,"program-eligibility");
-                }                
             }
-
         }
 
         //Remove or unset Eligibility Start
-        if(!empty($remove_eligibility_ids))
-            ProgramEligibility::where('application_id',$request->application_id)->where('program_id',$id)->whereIn('assigned_eigibility_name',$remove_eligibility_ids)->delete();        
+        if (!empty($remove_eligibility_ids))
+            ProgramEligibility::where('application_id', $request->application_id)->where('program_id', $id)->whereIn('assigned_eigibility_name', $remove_eligibility_ids)->delete();
         //Remove or unset Eligibility End
 
         // return $request;
         // For late submission
-        
+
 
 
         if (isset($result)) {
@@ -595,18 +527,16 @@ class ProgramController extends Controller
             Session::flash("error", "Please Try Again.");
         }
 
-        if (isset($request->save_exit))
-        {
+        if (isset($request->save_exit)) {
             return redirect('admin/Program');
         }
-        return redirect('admin/Program/edit/'.$id.'/'.$application_id);
-        
+        return redirect('admin/Program/edit/' . $id . '/' . $application_id);
     }
 
     public function delete($id)
     {
-        $currentdate=date("Y-m-d h:m:s", time());
-        $result=Program::where('id',$id)->update(['status'=>'T','updated_at'=>$currentdate]);
+        $currentdate = date("Y-m-d h:m:s", time());
+        $result = Program::where('id', $id)->update(['status' => 'T', 'updated_at' => $currentdate]);
         if (isset($result)) {
             Session::flash("success", "Program Data Move into Trash successfully.");
         } else {
@@ -623,13 +553,13 @@ class ProgramController extends Controller
     public function trash()
     {
         //
-        $programs=Program::where('status','T')->get();
-        return view('Program::trash',compact('programs'));
+        $programs = Program::where('status', 'T')->get();
+        return view('Program::trash', compact('programs'));
     }
     public function restore($id)
     {
-        $currentdate=date("Y-m-d h:m:s", time());
-        $result=Program::where('id',$id)->update(['status'=>'Y','updated_at'=>$currentdate]);
+        $currentdate = date("Y-m-d h:m:s", time());
+        $result = Program::where('id', $id)->update(['status' => 'Y', 'updated_at' => $currentdate]);
         if (isset($result)) {
             Session::flash("success", "Program Data restore successfully.");
         } else {
@@ -639,31 +569,26 @@ class ProgramController extends Controller
     }
     public function status(Request $request)
     {
-        $currentdate=date("Y-m-d h:m:s", time());
-//        return $request;
-        $result=Program::where('id',$request->id)->update(['status'=> $request->status,'updated_at'=>$currentdate]);
-        if(isset($result))
-        {
+        $currentdate = date("Y-m-d h:m:s", time());
+        //        return $request;
+        $result = Program::where('id', $request->id)->update(['status' => $request->status, 'updated_at' => $currentdate]);
+        if (isset($result)) {
             return json_encode(true);
-        }
-        else {
+        } else {
             return json_encode(false);
         }
     }
-
-
-    public function storeRecommendationFormException(Request $request, $program_id) 
+    public function storeRecommendationFormException(Request $request, $program_id)
     {
-        $user_id = \Auth::user()->id;
+        $user_id = Auth::user()->id;
         // remove old data
         RecommendationException::where('user_id', $user_id)
             ->where('program_id', $program_id)
             ->delete();
-        if (isset($request->extra['grade'])) 
-        {
+        if (isset($request->extra['grade'])) {
             foreach ($request->extra['grade'] as $key => $grade) {
                 $subject_teacher = NULL;
-                if (isset($request->extra['rec_subj'][$grade])) { 
+                if (isset($request->extra['rec_subj'][$grade])) {
                     if (!empty($request->extra['rec_subj'][$grade])) {
                         $subject_teacher = implode(',', $request->extra['rec_subj'][$grade]);
                     }
@@ -682,13 +607,12 @@ class ProgramController extends Controller
         return redirect()->back();
     }
 
-    public function storeProgramChoiceException(Request $request, $program_id) 
+    public function storeProgramChoiceException(Request $request, $program_id)
     {
         // return $request;
         // remove old data
         ProgramChoiceException::where('program_id', $program_id)->delete();
-        if (isset($request->extra['grade']) && !empty($request->extra['grade'])) 
-        {
+        if (isset($request->extra['grade']) && !empty($request->extra['grade'])) {
             foreach ($request->extra['grade'] as $grade) {
                 $display_name = '';
                 if (isset($request->extra['name'][$grade])) {

@@ -1,4 +1,7 @@
 <?php
+
+use Illuminate\Support\Facades\Route;
+
 Route::group(['prefix' => 'admin/Role','module' => 'Role', 'middleware' => ['web','auth','super'], 'namespace' => 'App\Modules\Role\Controllers'], function() {
 
 		Route::get('/', 'RoleController@index');
