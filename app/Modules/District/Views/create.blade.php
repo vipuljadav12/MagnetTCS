@@ -557,7 +557,6 @@
 
 
             $("input[name='district_logo']").change(function () {
-                console.log(this.files)
                 if (this.files && this.files[0]) {
                     var reader = new FileReader();
                     reader.onload = function (e) {
@@ -568,7 +567,6 @@
                 }
             });
             $("input[name='magnet_program_logo']").change(function () {
-                console.log(this.files)
                 if (this.files && this.files[0]) {
                     var reader = new FileReader();
                     reader.onload = function (e) {

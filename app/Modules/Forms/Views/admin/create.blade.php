@@ -80,7 +80,6 @@
         $("#formSubmit").find('textarea[name="description"]').each(function(){
                 // $("#cke_description_"+i).remove();
                 if(length == i) {
-                    console.log('In:-'+i);
                     $(this).attr('id','description_'+i);
                     
                 }
@@ -427,7 +426,6 @@
             $(".field-type").removeClass("d-none");
         } else {
             if(type != undefined) {
-                console.log(" type undefined ");
                 setFormSettingValues(type);
             }    
         }
@@ -1209,31 +1207,24 @@ function setToggleValue(){
 }
 
 function setTextStyle(){
-    console.log("Text");
     $(".field-type-list-detail.textbox-styling").removeClass("d-none")
 };
 function setEmailStyle(){
-    console.log("Email");
     $(".field-type-list-detail.email-styling").removeClass("d-none")
 };
 function setRadioStyle(){
-    console.log("Radio");
     $(".field-type-list-detail.radio-styling").removeClass("d-none")
 };
 function setCheckboxStyle(){
-    console.log("checkbox");
     $(".field-type-list-detail.checkbox-styling").removeClass("d-none")
 };
 function setDropdownStyle(){
-    console.log("DropDown");
     $(".field-type-list-detail.dropdown-styling").removeClass("d-none")
 };
 function setMultitextStyle(){
-    console.log("Multitext");
     $(".field-type-list-detail.multitext-styling").removeClass("d-none")
 };
 function setTextareaStyle(){
-    console.log("Textarea");
     $(".field-type-list-detail.textarea-styling").removeClass("d-none")
 };
 

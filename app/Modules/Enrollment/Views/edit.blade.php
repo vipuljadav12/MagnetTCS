@@ -211,7 +211,6 @@
                 total = total.toFixed(2);
             }
             parent_tr.find('.adm_percent').text(total);
-            // console.log(blank_count);
             return blank_count;
         }
 

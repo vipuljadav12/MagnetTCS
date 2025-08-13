@@ -386,8 +386,6 @@ $(document).ready(function(){
 
         var count = $(document).find('.cls_grade_file').length + 1;
 
-        console.log(count);
-
         var html = '<tr><td colspan="3"></td><td><div class="text-center"><label for="grade_file_'+count+'" class="cls_grade_file btn btn-secondary">Upload</label><i class="fa fa-plus ml-20 grade_upload_plus" aria-hidden="true"></i><i class="fa fa-minus ml-10 grade_upload_minus" aria-hidden="true"></i><input type="file" id="grade_file_'+count+'" name=grade_file[] class="grade_file"><div class="append_file_name"></div></div></td></tr>';
         var count = $(document).find('.grade_upload_plus').length;
 

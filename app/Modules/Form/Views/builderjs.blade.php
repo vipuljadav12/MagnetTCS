@@ -71,7 +71,6 @@
     	$(document).find("#input_container_builder").find(".form-group-input").each(function(key)
     	{
     		id = $(this).attr("data-build-id");
-    		console.log(id);
     		if(id != undefined)
     		{
     			// list[key] = id;
@@ -96,7 +95,6 @@
     			console.log(data);
 			},
 		});
-    	console.log(list);
     }
 
     function getFormContent()
@@ -467,7 +465,6 @@
 			allInputsValues[key] = currentInput;
 			// allInputsValues[input_name] = $(this).html();
 		});
-		console.log(allInputsValues);
 		var form_id = $(document).find("#form_id").val();
 		$.ajax({
 		  url: '{{url("admin/Form/saveBuild")}}',

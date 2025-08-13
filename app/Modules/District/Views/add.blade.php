@@ -141,7 +141,6 @@
                 readURLimg(this);
             });
             function readURLimg(input) {
-                console.log(input.files)
                 if (input.files && input.files[0]) {
                     var reader = new FileReader();
                     reader.onload = function (e) {
