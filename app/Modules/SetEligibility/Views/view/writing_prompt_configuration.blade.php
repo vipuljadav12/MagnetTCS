@@ -1,0 +1,277 @@
+
+<div class="card shadow">
+    <form id="extraValueForm1" action="{{url('admin/SetEligibility/configurations/save')}}" method="post">
+        {{csrf_field()}}
+        <input type="hidden" name="program_id" value="{{$req['program_id']}}">
+        <input type="hidden" name="eligibility_id" value="{{$req['eligibility_id']}}">
+        <input type="hidden" name="eligibility_type" value="{{$req['eligibility_type']}}">
+        <input type="hidden" name="application_id" value="{{$req['application_id']}}">
+
+        @php
+            $late_submission = 0;
+            if (isset($req['late_submission'])) {
+                $late_submission = $req['late_submission'];
+            }
+        @endphp
+        <input type="hidden" name="late_submission" value="{{$late_submission}}">
+        <div class="card-body">
+            <div class="row">
+                <div class="form-group col-12">
+                    <label class="control-label pl-0">Email Subject - Parent</label>
+                    <div class="col-12" style="padding: 5px;">
+                       <input class="form-control" name="parent_email_subject" value="{{getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'parent_email_subject', $req['application_id'])}}">
+                    </div>
+                        
+                </div>
+            </div>
+             <div class="row">
+                <div class="form-group col-12">
+                    <label class="control-label pl-0">Email Text - Parent</label>
+                    <div class="col-12" style="padding: 5px;">
+                       <textarea class="form-control" id="editor00" name="parent_email_content">{!! getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'parent_email_content', $req['application_id']) !!}</textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group col-12">
+                    <label class="control-label pl-0">Email Subject - Student</label>
+                    <div class="col-12" style="padding: 5px;">
+                       <input class="form-control" name="student_email_subject" value="{{getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'student_email_subject', $req['application_id'])}}">
+                    </div>
+                        
+                </div>
+            </div>
+             <div class="row">
+                <div class="form-group col-12">
+                    <label class="control-label pl-0">Email Text - Student</label>
+                    <div class="col-12" style="padding: 5px;">
+                       <textarea class="form-control" id="editor02" name="student_email_content">{!! getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'student_email_content', $req['application_id']) !!}</textarea>
+                    </div>
+                </div>
+            </div>
+            {{-- <div class="row">
+                <div class="form-group col-12">
+                        <label class="control-label pl-0">Email Subject</label>
+                        <div class="col-12" style="padding: 5px;">
+                           <input class="form-control" name="email_subject" value="{{getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'email_subject', $req['application_id'])}}">
+                        </div>
+                        
+                </div>
+            </div>
+
+             <div class="row">
+                <div class="form-group col-12">
+                        <label class="control-label pl-0">Email Text</label>
+                        <div class="col-12" style="padding: 5px;">
+                           <textarea class="form-control" id="editor00" name="email">{!! getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'email', $req['application_id']) !!}</textarea>
+                        </div>
+                        
+                </div>
+            </div> --}}
+
+            <div class="row">
+                <div class="form-group col-12">
+                        <label class="control-label pl-0">Writing Prompt Timer</label>
+                        <div class="col-12" style="padding: 5px;">
+                           <input class="form-control" name="prompt_timer" value="{{ getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'prompt_timer', $req['application_id']) }}">
+                        </div>
+                        
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group col-12">
+                        <label class="control-label pl-0">Writing Prompt Screen Text</label>
+                        <div class="col-12" style="padding: 5px;">
+                           <textarea class="form-control" id="editor01" name="welcome_screen_text">{!! getEligibilityConfigDynamic($req['program_id'], $req['eligibility_id'], 'welcome_screen_text', $req['application_id']) !!}</textarea>
+                        </div>
+                        
+                </div>
+            </div>
+
+            {{-- <div class="row">
+                <div class="form-group col-12 text-right">
+                    <button type="submit" id="extraValueFormBtn2" class="btn btn-success extraValueFormBtn">Save</button>
+                </div>
+            </div> --}}
+
+        </div>
+
+    </form>
+</div>
+
+
+@section('editConfScripts')
+    <script type="text/javascript" src="{{url('/')}}/resources/assets/admin/plugins/laravel-ckeditor/ckeditor.js"></script>
+    <script type="text/javascript" src="{{url('/resources/assets/admin/plugins/laravel-ckeditor/adapters/jquery.js')}}"></script>
+
+
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $(document).find("#exampleModalLabel1").html("Writing Prompt");
+            CKEDITOR.timestamp = new Date();
+            CKEDITOR.replace('editor00',{
+                toolbar : 'Basic',
+                toolbarGroups: [
+                        { name: 'document',    groups: [ 'mode', 'document' ] },            // Displays document group with its two subgroups.
+                        { name: 'clipboard',   groups: [ 'clipboard', 'undo' ] },           // Group's name will be used to create voice label.
+                        { name: 'basicstyles', groups: [ 'cleanup', 'basicstyles'] },
+                    
+                        '/',                                                                // Line break - next group will be placed in new line.
+                        { name: 'links' }
+                    ],
+                    on: {
+                    pluginsLoaded: function() {
+                        var editor = this,
+                            config = editor.config;
+                        
+                        editor.ui.addRichCombo( 'my-combo', {
+                            label: 'Insert Short Code',
+                            title: 'Insert Short Code',
+                            toolbar: 'basicstyles',
+                    
+                            panel: {               
+                                css: [ CKEDITOR.skin.getPath( 'editor' ) ].concat( config.contentsCss ),
+                                multiSelect: false,
+                                attributes: { 'aria-label': 'Insert Short Code' }
+                            },
+                
+                            init: function() {   
+                                var chk = []; 
+                                $.ajax({
+                                    url:'{{url('/admin/shortCode/list')}}',
+                                    type:"get",
+                                    async: false,
+                                    success:function(response){
+                                        chk = response;
+                                    }
+                                }) 
+                                for(var i=0;i<chk.length;i++){
+                                    this.add( chk[i], chk[i] );
+                                }
+                            },
+                
+                            onClick: function( value ) {
+                                editor.focus();
+                                editor.fire( 'saveSnapshot' );
+                               
+                                editor.insertHtml( value );
+                            
+                                editor.fire( 'saveSnapshot' );
+                            }
+                        } );        
+                    }        
+                }
+            });
+
+            CKEDITOR.replace('editor01',{
+                toolbar : 'Basic',
+                toolbarGroups: [
+                        { name: 'document',    groups: [ 'mode', 'document' ] },            // Displays document group with its two subgroups.
+                        { name: 'clipboard',   groups: [ 'clipboard', 'undo' ] },           // Group's name will be used to create voice label.
+                        { name: 'basicstyles', groups: [ 'cleanup', 'basicstyles'] },
+                    
+                        '/',                                                                // Line break - next group will be placed in new line.
+                        { name: 'links' }
+                    ],
+                    on: {
+                    pluginsLoaded: function() {
+                        var editor = this,
+                            config = editor.config;
+                        
+                        editor.ui.addRichCombo( 'my-combo', {
+                            label: 'Insert Short Code',
+                            title: 'Insert Short Code',
+                            toolbar: 'basicstyles',
+                    
+                            panel: {               
+                                css: [ CKEDITOR.skin.getPath( 'editor' ) ].concat( config.contentsCss ),
+                                multiSelect: false,
+                                attributes: { 'aria-label': 'Insert Short Code' }
+                            },
+                
+                            init: function() {   
+                                var chk = []; 
+                                $.ajax({
+                                    url:'{{url('/admin/shortCode/list')}}',
+                                    type:"get",
+                                    async: false,
+                                    success:function(response){
+                                        chk = response;
+                                    }
+                                }) 
+                                for(var i=0;i<chk.length;i++){
+                                    this.add( chk[i], chk[i] );
+                                }
+                            },
+                
+                            onClick: function( value ) {
+                                editor.focus();
+                                editor.fire( 'saveSnapshot' );
+                               
+                                editor.insertHtml( value );
+                            
+                                editor.fire( 'saveSnapshot' );
+                            }
+                        } );        
+                    }        
+                }
+            });
+
+            CKEDITOR.replace('editor02',{
+                toolbar : 'Basic',
+                toolbarGroups: [
+                        { name: 'document',    groups: [ 'mode', 'document' ] },            // Displays document group with its two subgroups.
+                        { name: 'clipboard',   groups: [ 'clipboard', 'undo' ] },           // Group's name will be used to create voice label.
+                        { name: 'basicstyles', groups: [ 'cleanup', 'basicstyles'] },
+                    
+                        '/',                                                                // Line break - next group will be placed in new line.
+                        { name: 'links' }
+                    ],
+                    on: {
+                    pluginsLoaded: function() {
+                        var editor = this,
+                            config = editor.config;
+                        
+                        editor.ui.addRichCombo( 'my-combo', {
+                            label: 'Insert Short Code',
+                            title: 'Insert Short Code',
+                            toolbar: 'basicstyles',
+                    
+                            panel: {               
+                                css: [ CKEDITOR.skin.getPath( 'editor' ) ].concat( config.contentsCss ),
+                                multiSelect: false,
+                                attributes: { 'aria-label': 'Insert Short Code' }
+                            },
+                
+                            init: function() {   
+                                var chk = []; 
+                                $.ajax({
+                                    url:'{{url('/admin/shortCode/list')}}',
+                                    type:"get",
+                                    async: false,
+                                    success:function(response){
+                                        chk = response;
+                                    }
+                                }) 
+                                for(var i=0;i<chk.length;i++){
+                                    this.add( chk[i], chk[i] );
+                                }
+                            },
+                
+                            onClick: function( value ) {
+                                editor.focus();
+                                editor.fire( 'saveSnapshot' );
+                               
+                                editor.insertHtml( value );
+                            
+                                editor.fire( 'saveSnapshot' );
+                            }
+                        } );        
+                    }        
+                }
+            });
+            
+        });
+    </script>
+@stop

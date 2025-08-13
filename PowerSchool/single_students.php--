@@ -1,0 +1,35 @@
+<?php
+
+set_time_limit(0);
+ini_set('memory_limit', '-1');
+include('functions.php');
+include_once('dbClass.php');
+$type = 'enrolled_state_id_students';
+$url = 'https://tuscaloosacs.powerschool.com';
+$clientID = '105a3a3d-78ea-4b7e-b511-868a94370f72';
+$clientSecret = '8dae6cac-370b-41e7-84d1-982cc9d90602';
+$objDB = new MySQLCN; 
+
+$accessToken = getAccessToken($url, $clientID, $clientSecret);
+
+$accessTokenArray = json_decode($accessToken);
+
+    if (!empty($accessTokenArray)) {
+        $accessTokenKey = $accessTokenArray->access_token;
+        $accessTokenType = $accessTokenArray->token_type;
+        $accessTokenExpiresIn = $accessTokenArray->expires_in;
+
+        if (isset($accessTokenKey) && !empty($accessTokenKey)) {
+            $powerSchoolRecords = getPowerSchoolRecords($type, $accessTokenKey, $url, array('student_id'=>1971565674));
+
+        }
+    }
+    else {
+    echo "Invalid Token";
+    }
+getAccessToken($url, $clientID, $clientSecret);
+$accessTokenArray = json_decode($accessToken);
+
+
+
+?>

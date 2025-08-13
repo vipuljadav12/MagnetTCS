@@ -1,0 +1,663 @@
+<?php
+function getAccessToken($url, $clientID, $clientSecret) {
+
+    $curl = curl_init();
+    $authData = http_build_query(array(
+        'client_id' => $clientID,
+        'client_secret' => $clientSecret,
+        'grant_type' => 'client_credentials'
+    ));
+    curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-Type:application/x-www-form-urlencoded'));
+    curl_setopt($curl, CURLOPT_POST, 1);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, $authData);
+    curl_setopt($curl, CURLOPT_URL, $url . '/oauth/access_token');
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+    //$request = curl_getinfo($curl);
+    //var_dump($request);
+
+    $result = curl_exec($curl);
+    
+    if (!$result) {
+        echo 'Curl Error: ' . curl_error($curl) . '<br />';
+        die("Connection Failure");
+    }
+    curl_close($curl);
+    //print_r($result);exit;
+    return $result;
+}
+
+function getPowerSchoolRecords($type, $accessTokenKey, $url, $sdata) {
+    global $objDB;
+
+    $response = false;
+    $queryName = '';
+    switch ($type) {case 'enrolled_state_id_students':
+            $queryName = 'org.magnet_tcs.enrolled_state_id_students.hs_enrolled_state_id_students';
+        break;
+        case 'school_students':
+            $queryName = 'org.magnet_tcs.school_students.hs_school_students';
+        break;
+        case 'active_students':
+            $queryName = 'org.magnet_tcs.active_students.hs_active_students';
+        break;
+        case 'students':
+            $queryName = 'org.magnet_tcs.students.hs_students';
+        break;
+        case 'schools':
+            $queryName = 'org.magnet_tcs.schools.hs_schools';
+        break;
+        case 'users':
+            $queryName = 'org.magnet_tcs.users.hs_users';
+        break;
+        case 'attendance_code':
+            $queryName = 'org.magnet_tcs.attendance_code.hs_attendance_code';
+        break;
+        case 'studentrace':
+            $queryName = 'org.magnet_tcs.studentrace.hs_studentrace';
+        break;
+        case 'standard':
+            $queryName = 'org.magnet_tcs.standard.hs_standard';
+        break;
+        case 'terms':
+            $queryName = 'org.magnet_tcs.terms.hs_terms';
+        break;
+        case 'period':
+            $queryName = 'org.magnet_tcs.period.hs_period';
+        break;
+        case 'sections':
+            $queryName = 'org.magnet_tcs.sections.hs_sections';
+        break;
+        case 'sectionteacher':
+            $queryName = 'org.magnet_tcs.sectionteacher.hs_sectionteacher';
+        break;
+        case 'psm_studentphoto':
+            $queryName = 'org.magnet_tcs.psm_studentphoto.hs_psm_studentphoto';
+        break;
+        case 'incident':
+            $queryName = 'org.magnet_tcs.incident.hs_incident';
+        break;
+        case 'incident_lu_code':
+            $queryName = 'org.magnet_tcs.incident_lu_code.hs_incident_lu_code';
+        break;
+        case 'incident_action_attribute':
+            $queryName = 'org.magnet_tcs.incident_action_attribute.hs_incident_action_attribute';
+        break;
+        case 'incident_change_rsn_desc':
+            $queryName = 'org.magnet_tcs.incident_change_rsn_desc.hs_incident_change_rsn_desc';
+        break;
+        case 'incident_detail':
+            $queryName = 'org.magnet_tcs.incident_detail.hs_incident_detail';
+        break;
+        case 'incident_object':
+            $queryName = 'org.magnet_tcs.incident_object.hs_incident_object';
+        break;
+        case 'incident_person_role':
+            $queryName = 'org.magnet_tcs.incident_person_role.hs_incident_person_role';
+        break;
+        case 'incident_action':
+            $queryName = 'org.magnet_tcs.incident_action.hs_incident_action';
+        break;
+        case 'incidenttemplate':
+            $queryName = 'org.magnet_tcs.incidenttemplate.hs_incidenttemplate';
+        break;
+        case 'incident_lu_sub_code':
+            $queryName = 'org.magnet_tcs.incident_lu_sub_code.hs_incident_lu_sub_code';
+        break;
+        case 'att_date_attendance':
+            $queryName = 'org.magnet_tcs.att_date_attendance.hs_att_date_attendance';
+        break;
+        case 'student_attendance':
+            $queryName = 'org.magnet_tcs.student_attendance.hs_student_attendance';
+        break;
+        case 'attendance':
+            $queryName = 'org.magnet_tcs.attendance.hs_attendance';
+        break;
+        case 'psm_studentcontact':
+            $queryName = 'org.magnet_tcs.psm_studentcontact.hs_psm_studentcontact';
+        break;
+        case 'person':
+            $queryName = 'org.magnet_tcs.person.hs_person';
+        break;
+        case 'courses':
+            $queryName = 'org.magnet_tcs.courses.hs_courses';
+        break;
+        case 'psm_sectionteacher':
+            $queryName = 'org.magnet_tcs.psm_sectionteacher.hs_psm_sectionteacher';
+        break;
+        case 'psm_sectionspecfield':
+            $queryName = 'org.magnet_tcs.psm_sectionspecfield.hs_psm_sectionspecfield';
+        break;
+        case 'psm_sectionstudentdata':
+            $queryName = 'org.magnet_tcs.psm_sectionstudentdata.hs_psm_sectionstudentdata';
+        break;
+        case 'psm_section':
+            $queryName = 'org.magnet_tcs.psm_section.hs_psm_section';
+        break;
+        case 'psm_course':
+            $queryName = 'org.magnet_tcs.psm_course.hs_psm_course';
+        break;
+        case 'psm_subjectarea':
+            $queryName = 'org.magnet_tcs.psm_subjectarea.hs_psm_subjectarea';
+        break;
+        case 'schoolstaff':
+            $queryName = 'org.magnet_tcs.schoolstaff.hs_schoolstaff';
+        break;
+        case 'psm_district':
+            $queryName = 'org.magnet_tcs.psm_district.hs_psm_district';
+        break;
+        case 'standards':
+            $queryName = 'org.magnet_tcs.standards.hs_standards';
+        break;
+        case 'schedulecc':
+            $queryName = 'org.magnet_tcs.schedulecc.hs_schedulecc';
+        break;
+        case 'gen':
+            $queryName = 'org.magnet_tcs.gen.hs_gen';
+        break;
+        case 'teacherrace':
+            $queryName = 'org.magnet_tcs.teacherrace.hs_teacherrace';
+        break;
+        case 'bell_schedule_items':
+            $queryName = 'org.magnet_tcs.bell_schedule_items.hs_bell_schedule_items';
+        break;
+        case 'schedulesectionmeeting':
+            $queryName = 'org.magnet_tcs.schedulesectionmeeting.hs_schedulesectionmeeting';
+        break;
+        case 'bell_schedule':
+            $queryName = 'org.magnet_tcs.bell_schedule.hs_bell_schedule';
+        break;
+        case 'calendar_day':
+            $queryName = 'org.magnet_tcs.calendar_day.hs_calendar_day';
+        break;
+        case 'cycle_day':
+            $queryName = 'org.magnet_tcs.cycle_day.hs_cycle_day';
+        break;
+        case 'section_meeting':
+            $queryName = 'org.magnet_tcs.section_meeting.hs_section_meeting';
+        break;
+        case 'cc':
+            $queryName = 'org.magnet_tcs.cc.hs_cc';
+        break;
+        case 'guardianstudent':
+            $queryName = 'org.magnet_tcs.guardianstudent.hs_guardianstudent';
+        break;
+        case 'guardians':
+            $queryName = 'org.magnet_tcs.guardians.hs_guardians';
+        break;
+        case 'guardiannotificationemail':
+            $queryName = 'org.magnet_tcs.guardiannotificationemail.hs_guardiannotificationemail';
+        break;
+        case 'storedgrades':
+            $queryName = 'org.magnet_tcs.storedgrades.hs_storedgrades';
+        break;
+        case 'student_storedgrades':
+            $queryName = 'org.magnet_tcs.student_storedgrades.hs_student_storedgrades';
+        break;
+        case 'pgfinalgrades':
+            $queryName = 'org.magnet_tcs.pgfinalgrades.hs_pgfinalgrades';
+        break;
+        case 'fee':
+            $queryName = 'org.magnet_tcs.fee.hs_fee';
+        break;
+        case 'fees':
+            $queryName = 'org.magnet_tcs.fees.hs_fees';
+        break;
+        case 'fee_type':
+            $queryName = 'org.magnet_tcs.fee_type.hs_fee_type';
+        break;
+        case 'schoolfee':
+            $queryName = 'org.magnet_tcs.schoolfee.hs_schoolfee';
+        break;
+        case 'coursefee':
+            $queryName = 'org.magnet_tcs.coursefee.hs_coursefee';
+        break;
+        case 'standardgradesection':
+            $queryName = 'org.magnet_tcs.standardgradesection.hs_standardgradesection';
+        break;
+        case 'gradescaleitem':
+            $queryName = 'org.magnet_tcs.gradescaleitem.hs_gradescaleitem';
+        break;
+        case 'standardcourseassoc':
+            $queryName = 'org.magnet_tcs.standardcourseassoc.hs_standardcourseassoc';
+        break;
+        case 'gradescalesectionstudent':
+            $queryName = 'org.magnet_tcs.gradescalesectionstudent.hs_gradescalesectionstudent';
+        break;
+        case 'standardgradesection':
+            $queryName = 'org.magnet_tcs.standardgradesection.hs_standardgradesection';
+        break;
+        case 'gradescaleitem':
+            $queryName = 'org.magnet_tcs.gradescaleitem.hs_gradescaleitem';
+        break;
+        case 'gradescalesectionstudent':
+            $queryName = 'org.magnet_tcs.gradescalesectionstudent.hs_gradescalesectionstudent';
+        break;
+    }
+    if (!empty($type) && $type == "schools") {
+        $resource = $url . '/ws/schema/query/' . $queryName.'?pagesize=0';
+        $payload = '{}';
+        
+        $opts = array('http' =>
+            array(
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n".
+                    "Authorization: Bearer $accessTokenKey\r\n",
+                'content' => $payload
+            )
+        );
+        //echo "<pre>"; print_r($opts); exit;
+        //Call the server's oauth gateway
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, array(
+                "Content-Type: application/json",
+                            "Authorization: Bearer $accessTokenKey"
+            ));
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($curl, CURLOPT_URL, $resource);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+
+            $result = curl_exec($curl);
+
+//        $result = file_get_contents($resource, false, stream_context_create($opts));
+        //Get the JSON data
+        $jsonData = json_decode($result, true);
+     //   echo base64_decode('V3JvbmcgUXVlcnkgOiBJTlNFUlQgSU5UTyBwc19zY2hvb2xzIFNFVCBuYW1lID0gIkFjYWQgZm9yIEFjYWRlbWljcyAmIEFydHMgRVMiLGRjaWQgPSAiNjQiLHNjaG9vbF9pZCA9ICIyNSIsc2Nob29semlwID0gIjM1ODEwIixsb3dfZ3JhZGUgPSAiLTMiLGhpZ2hfZ3JhZGUgPSAiNSI8YnI+VW5rbm93biBjb2x1bW4gJ3NjaG9vbHppcCcgaW4gJ2ZpZWxkIGxpc3Qn');exit;//"<pre>"; print_r($jsonData); exit;
+        
+        //Collapse the array a bit if there is data
+        $hsRecords = array();
+        $exist = [];
+        if (isset($jsonData['record'])) {
+            foreach ($jsonData['record'] as $item) {
+                $gdata = [];
+                $gdata['name'] = $item['tables']['schools']['name'];
+                $gdata['dcid'] = $item['tables']['schools']['dcid'];
+                $gdata['school_id'] = $item['tables']['schools']['school_number'];
+                $gdata['schoolzip'] = $item['tables']['schools']['schoolzip'];
+                $gdata['low_grade'] = $item['tables']['schools']['low_grade'];
+                $gdata['high_grade'] = $item['tables']['schools']['high_grade'];
+
+                $SQL = "INSERT INTO ps_schools SET ";
+                foreach($gdata as $k=>$v)
+                {
+                    $SQL .= $k.' = "'.$v.'",';
+                }
+                $SQL = trim($SQL, ",");
+                $rs = $objDB->sql_query($SQL);
+            }
+        }
+
+
+    }
+    else if (!empty($type) && $type == "gen") {
+        
+        $resource = $url . '/ws/schema/query/' . $queryName.'?pagesize=0';
+        $payload = '{}';
+        
+
+        $opts = array('http' =>
+            array(
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n".
+                    "Authorization: Bearer $accessTokenKey\r\n",
+                'content' => $payload
+            )
+        );
+        //echo "<pre>"; print_r($opts); exit;
+        //Call the server's oauth gateway
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, array(
+                "Content-Type: application/json",
+                            "Authorization: Bearer $accessTokenKey"
+            ));
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($curl, CURLOPT_URL, $resource);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+
+            $result = curl_exec($curl);
+        //Get the JSON data
+        $jsonData = json_decode($result, true);
+     //echo "<pre>"; print_r($jsonData); exit;
+        
+        //Collapse the array a bit if there is data
+        $hsRecords = array();
+        $exist = [];
+        if (isset($jsonData['record'])) {
+            foreach ($jsonData['record'] as $item) {
+                $gdata = [];
+                $gdata['value2'] = $item['tables']['gen']['value2'];
+                $gdata['dcid'] = $item['tables']['gen']['dcid'];
+                $gdata['valuet'] = $item['tables']['gen']['valuet'];
+                $gdata['cat'] = $item['tables']['gen']['cat'];
+                $gdata['name'] = $item['tables']['gen']['name'];
+                $gdata['id'] = $item['tables']['gen']['id'];
+                $gdata['value'] = $item['tables']['gen']['value'];
+
+                if($gdata['cat'] == "ethnicity")
+                {
+                    $SQL = "INSERT INTO ps_general SET ";
+                    foreach($gdata as $k=>$v)
+                    {
+                        $SQL .= $k.' = "'.$v.'",';
+                    }
+                    $SQL = trim($SQL, ",");
+                    $rs = $objDB->sql_query($SQL);
+                }
+            }
+        }
+
+        
+
+    }
+    else if (!empty($type) && $type == "student_storedgrades") {
+
+        $resource = $url . '/ws/schema/query/' . $queryName.'?pagesize=0';
+        $payload = '{}';
+        if ($type == 'student_storedgrades') {
+            $payload = '{"StudentID" : '.$sdata['student_id'].'}';
+        }
+        
+        //Set options for POST call
+        $opts = array('http' =>
+            array(
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n".
+                    "Authorization: Bearer $accessTokenKey\r\n",
+                'content' => $payload
+            )
+        );
+        //echo "<pre>"; print_r($opts); exit;
+        //Call the server's oauth gateway
+        $result = file_get_contents($resource, false, stream_context_create($opts));
+        //Get the JSON data
+        $jsonData = json_decode($result, true);
+//print_r($jsonData);exit;
+$fields = array_keys($jsonData['record'][0]['tables']['storedgrades']);
+        foreach($fields as $val)
+        {
+            echo $val."^";
+        }
+        echo "<br>";
+        foreach ($jsonData['record'] as $item) {
+            $tmp = $item['tables']['storedgrades'];
+            foreach($fields as $val)
+            {
+                echo $tmp[$val]."^";
+            }
+            echo "<br>";
+        }
+        exit;
+        
+        
+        //Collapse the array a bit if there is data
+        $hsRecords = array();
+        $exist = [];
+        if (isset($jsonData['record'])) {
+            foreach ($jsonData['record'] as $item) {
+
+                $term = $item['tables']['storedgrades']['termid'];
+
+                $academicYear = ($term/100) + 1990;
+                $yrid = $academicYear;// ."-".($academicYear+1);
+                
+                if($yrid != '')// && in_array($yrid, array(2021)))
+                {
+                    //$yrid = (1990 + $term_data[0]['yearid'];
+                    $term = $yrid . "-".(($yrid+1)-2000);
+                    $gdata = [];
+                    $gdata['courseTypeID'] = 0;
+                    $gdata['courseType'] = "";
+                    $gdata['submission_id'] = $sdata['submission_id'];
+                    $gdata['stateID'] = $sdata['student_id'];
+                    $gdata['academicYear'] = $term;
+                    $gdata['GradeName'] = $gdata['academicTerm'] = str_replace(" Grade", "", $item['tables']['storedgrades']['storecode'])." Grade";
+
+                    if($item['tables']['storedgrades']['credit_type'] == 'C,MTH' || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'math') !== false || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'algebra') !== false || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'geometry') !== false  || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'precalculus') !== false){
+                        $gdata['courseTypeID'] = 4;
+                        $gdata['courseType'] = "Math";
+
+                    }
+                    else if($item['tables']['storedgrades']['credit_type'] == "C,SS" || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'geography') !== false || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'civics') !== false || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'citizenship') !== false || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'history') !== false) {
+                        $gdata['courseTypeID'] = 9;
+                        $gdata['courseType'] = "Social Studies";
+                    }
+                    else if(strpos(strtolower($item['tables']['storedgrades']['course_name']), 'reading') !== false) {
+                        $gdata['courseTypeID'] = 0;
+                        $gdata['courseType'] = "Reading";
+                    }
+                    else if($item['tables']['storedgrades']['credit_type'] == "C,SC"  || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'chemistry') !== false   || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'science') !== false   || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'biology') !== false) {
+                        $gdata['courseTypeID'] = 7;
+                        $gdata['courseType'] = "Science";
+                    }
+                    else if($item['tables']['storedgrades']['credit_type'] == "C,ELA"  || strpos(strtolower($item['tables']['storedgrades']['course_name']), 'english') !== false) {
+                        $gdata['courseTypeID'] = 3;
+                        $gdata['courseType'] = "English";
+                    }
+
+                    if(isset($gdata['courseType']))
+                    {
+                        if(!in_array($term."-".$gdata['courseType']."-".$item['tables']['storedgrades']['storecode'], $exist))
+                        {
+                            $gdata['courseFullName'] = $gdata['courseName'] = $item['tables']['storedgrades']['course_name'];
+                            $gdata['numericGrade'] =$gdata['actual_numeric_grade'] = $item['tables']['storedgrades']['percent'];
+                            $exist[] = $term."-".$gdata['courseType']."-".$item['tables']['storedgrades']['storecode'];
+
+                        }
+                    }
+                    else
+                    {
+                        $gdata['courseFullName'] = $gdata['courseName'] = $item['tables']['storedgrades']['course_name'];
+                        $gdata['numericGrade'] = $gdata['actual_numeric_grade'] = $item['tables']['storedgrades']['percent'];
+
+                    }
+                    $gdata['grade'] = $item['tables']['storedgrades']['grade'];
+                   // $gdata['teacher_name'] = $item['tables']['storedgrades']['teacher_name'];
+                    //$gdata['school_id'] - $item['tables']['storedgrades']['schoolid'];
+
+
+                    if(isset($gdata['numericGrade']) && $gdata['numericGrade'] != '' && in_array($gdata['academicTerm'], array('Q1 Grade', 'Q2 Grade')))
+                    {
+                        $teacher_email = "";
+                        if($gdata['teacher_name'] != '')
+                        {
+                            $section_id = $item['tables']['storedgrades']['sectionid'];
+                            $SQL = "SELECT teacher FROM ps_sections WHERE dcid = '".$section_id."'";
+                            $rs_sections = $objDB->select($SQL);
+
+                            if(count($rs_sections) > 0)
+                            {
+                                $teacher_id = $rs_sections[0]['teacher'];
+                                $SQL = "SELECT * FROM ps_users WHERE dcid = '".$teacher_id."'";
+                                $rs_teacher = $objDB->select($SQL);
+                                if(count($rs_teacher) > 0)
+                                {
+                                    $teacher_email = $rs_teacher[0]['email_addr'];
+                                }
+                            }
+                        }
+                       // $gdata['teacher_email'] = $teacher_email;
+
+                       /* $SQL = "DELETE FROM submission_grade WHERE submission_id = '".$gdata['submission_id']."' AND courseType = '".(isset($gdata['courseType']) ? $gdata['courseType'] : "")."' AND academicYear = '".$gdata['academicYear']."'";
+                        $rd = $objDB->sql_query($SQL);*/
+                        $SQL = "INSERT INTO submission_grade SET ";
+                        foreach($gdata as $k=>$v)
+                        {
+                            $SQL .= $k.' = "'.$v.'",';
+                        }
+                        $SQL = trim($SQL, ",");
+                        $rs = $objDB->sql_query($SQL);
+                        
+
+                    }
+                }
+
+                    //$yrid = (1990 + $term_data[0]['yearid'];
+                /*$term = $yrid . "-".($yrid+1);
+                $gdata = [];
+                $gdata['course_number'] = $item['tables']['storedgrades']['course_number'];
+                $gdata['credit_type'] = $item['tables']['storedgrades']['credit_type'];
+                $gdata['grade_level'] = $item['tables']['storedgrades']['grade_level'];
+                $gdata['studentid'] = $sdata['student_id'];
+                $gdata['course_name'] = $item['tables']['storedgrades']['course_name'];
+                $gdata['academicYear'] = $term;
+                $gdata['numericGrade'] = $item['tables']['storedgrades']['percent'];
+                $gdata['teacher_name'] = $item['tables']['storedgrades']['teacher_name'];
+                $gdata['gpa_points'] = $item['tables']['storedgrades']['gpa_points'];
+                $gdata['gradescale_name'] = $item['tables']['storedgrades']['gradescale_name'];
+                $gdata['grade'] = $item['tables']['storedgrades']['grade'];
+                $gdata['sectionid'] = $item['tables']['storedgrades']['sectionid'];
+                $gdata['schoolname'] = $item['tables']['storedgrades']['schoolname'];
+                $gdata['storecode'] = $item['tables']['storedgrades']['storecode'];
+                $gdata['grade'] = $item['tables']['storedgrades']['grade'];
+
+                foreach($gdata as $k=>$v)
+                {
+                    echo $v."^";
+                }
+                echo "<br>";*/
+
+
+
+
+            }
+        }
+    }
+    else if (!empty($type) && $type == "students") 
+    {
+         $resource = $url . '/ws/schema/query/' . $queryName.'?pagesize=0';
+    
+        $payload = '{}';
+        
+        // echo base64_decode('V3JvbmcgUXVlcnkgOiBTRUxFQ1QgKiBGUk9NIHBzX3NjaG9vbHMgV0hFUkUgc2Nob29sX2lkID0gJzE3Mic8YnI+VGFibGUgJ2hjc19saXZlLnBzX3NjaG9vbHMnIGRvZXNuJ3QgZXhpc3Q=');
+        // exit;
+        //Set options for POST call
+        $opts = array('http' =>
+            array(
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n".
+                    "Authorization: Bearer $accessTokenKey\r\n",
+                'content' => $payload
+            )
+        );
+        //echo "<pre>"; print_r($opts); exit;
+        //Call the server's oauth gateway
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, array(
+                "Content-Type: application/json",
+                            "Authorization: Bearer $accessTokenKey"
+            ));
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($curl, CURLOPT_URL, $resource);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+            $result = curl_exec($curl);
+
+        //$result = file_get_contents($resource, false, stream_context_create($opts));
+        //Get the JSON data
+        $jsonData = json_decode($result, true);
+              //` echo "<pre>"; print_r($jsonData); exit;
+        
+        //Collapse the array a bit if there is data
+        $hsRecords = array();
+        $exist = [];
+
+            foreach ($jsonData['record'] as $item) {
+
+                if($item['tables']['students']['enroll_status'] == "0")
+                {
+                                    $data = [];
+                $race = $item['tables']['students']['ethnicity'];
+                $schoo_id = $item['tables']['students']['schoolid'];
+               
+                $SQL = "SELECT * FROM ps_schools WHERE school_id = '".$schoo_id."'";
+                $rs = $objDB->sql_query($SQL);
+
+                if(count($rs) > 0)
+                {
+                    $data['current_school'] = $rs[0]['name'];
+                }
+
+                $SQL = "SELECT * FROM ps_general WHERE value = '".$race."'";
+                $rs = $objDB->sql_query($SQL);
+
+                if(count($rs) > 0)
+                {
+                    if($item['tables']['students']['fedethnicity'] == '1')
+                        $hispanic = " - Hispanic";
+                    else
+                        $hispanic = " - Non-Hispanic";
+                    $data['race'] = $rs[0]['name'].$hispanic;
+                }
+
+                //$data['current_school'] = $item['tables']['students']['schoolid'];
+
+                $data['birthday'] = $item['tables']['students']['dob'];
+                $data['enroll_status'] = $item['tables']['students']['enroll_status'];
+                $data['first_name'] = $item['tables']['students']['first_name'];
+                $data['last_name'] = $item['tables']['students']['last_name'];
+                $data['gender'] = $item['tables']['students']['gender'];
+                $data['stateID'] = $item['tables']['students']['student_number'];
+                $data['address'] = $item['tables']['students']['street'];
+                $data['city'] = $item['tables']['students']['city'];
+                $data['state'] = $item['tables']['students']['state'];
+                $data['phone'] = $item['tables']['students']['home_phone'];
+                 $data['zip'] = $item['tables']['students']['zip'];
+
+                $grade_level = $item['tables']['students']['grade_level'];
+                if(in_array($grade_level, array("-4", "-3", "-2", "-1", "99")))
+                    $current_grade = "PreK";
+                elseif(in_array($grade_level, array("0")))
+                    $current_grade = "K";
+                else
+                    $current_grade = $grade_level;
+
+                
+                $data['current_grade'] = $current_grade;
+                $data['middle_name'] = addslashes($item['tables']['students']['middle_name']);
+                $data['student_id'] = $item['tables']['students']['id'];
+                $data['dcid'] = $item['tables']['students']['dcid'];
+
+                $SQL = "SELECT * FROM student WHERE stateID = '".$data['stateID']."'";
+                $rs = $objDB->select($SQL);
+
+                if(count($rs) > 0)
+                {
+                    $SQL = "UPDATE student SET ";
+                }
+                else
+                {
+                    $SQL = "INSERT INTO student SET ";
+                }
+                foreach($data as $k=>$v)
+                        {
+                            $SQL .= $k.' = "'.addslashes($v).'",';
+                        }
+                $SQL = trim($SQL, ",");
+                if(count($rs) > 0)
+                {
+                    $SQL .= ", updated_at = '".date("Y-m-d H:i:s")."'";
+                    $SQL .= " WHERE stateID = '".$data['stateID']."'";
+                }
+                else
+                {
+                $SQL .= ", created_at = '".date("Y-m-d H:i:s")."'";
+                }
+                $rs = $objDB->sql_query($SQL);
+            }
+
+
+
+
+            } ///s
+    }
+
+//    return $response;
+}
+

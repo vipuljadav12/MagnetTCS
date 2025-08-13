@@ -1,0 +1,881 @@
+<?php
+
+namespace App\Modules\Submissions\Controllers;
+
+use App\Modules\School\Models\School;
+use App\Modules\District\Models\District;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Modules\School\Models\Grade;
+use App\Modules\Enrollment\Models\Enrollment;
+use App\Modules\Application\Models\ApplicationProgram;
+use App\Modules\Application\Models\Application;
+use App\Modules\Program\Models\Program;
+use App\Modules\Submissions\Models\Submissions;
+use App\Modules\Submissions\Models\{SubmissionGrade,SubmissionComment,SubmissionsStatusUniqueLog};
+use App\Modules\Submissions\Models\SubmissionAudition;
+use App\Modules\Submissions\Models\SubmissionWritingPrompt;
+use App\Modules\Submissions\Models\SubmissionInterviewScore;
+use App\Modules\Submissions\Models\SubmissionCommitteeScore;
+use App\Modules\Submissions\Models\SubmissionConductDisciplinaryInfo;
+use App\Modules\Submissions\Models\SubmissionStandardizedTesting;
+use App\Modules\Submissions\Models\SubmissionAcademicGradeCalculation;
+use App\Modules\Application\Models\ApplicationConfiguration;
+use App\Modules\Eligibility\Models\SubjectManagement;
+use App\StudentGrade;
+use App\StudentCDI;
+use Config;
+use Session;
+use DB;
+use App\Traits\AuditTrail;
+use Auth;
+
+
+class SubmissionsController extends Controller
+{
+    use AuditTrail;
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        $programs = Auth::user()->programs;
+        if($programs == "22")
+        {
+            $submissions=Submissions::
+                join('application','application.id','submissions.application_id')
+                ->join('enrollments','enrollments.id','application.enrollment_id')
+                ->where('submissions.district_id', Session::get('district_id'))
+                 ->where(function($query) use($programs) {
+                        $query->whereRaw('FIND_IN_SET(submissions.first_choice_program_id, "'.implode(",", $programs).'")')
+                               ->orWhereRaw('FIND_IN_SET(submissions.second_choice_program_id, "'.implode(",", $programs).'")');
+                })
+                ->select('submissions.*','enrollments.school_year')
+                ->orderBy('created_at','desc')
+                ->get();
+        }
+        else
+        {
+            $submissions=Submissions::
+                join('application','application.id','submissions.application_id')
+                ->join('enrollments','enrollments.id','application.enrollment_id')
+                ->where('submissions.district_id', Session::get('district_id'))
+                ->select('submissions.*','enrollments.school_year')
+                ->orderBy('created_at','desc')
+                ->get();
+        }
+
+
+
+        return view("Submissions::index",compact('submissions'));
+    }
+
+    public function testindex()
+    {
+        $submissions=Submissions::
+            join('application','application.id','submissions.application_id')
+            ->join('enrollments','enrollments.id','application.enrollment_id')
+            ->where('submissions.district_id', Session::get('district_id'))
+            ->select('submissions.*','enrollments.school_year')
+            ->orderBy('created_at','desc')
+            ->get();
+        // return $submissions;
+        return view("Submissions::testindex",compact('submissions'));
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function edit($id)
+    {
+        $display_outcome = SubmissionsStatusUniqueLog::count();
+        $district = District::where("id", Session::get("district_id"))->first();
+
+        $submission=Submissions::where('id',$id)->first();
+        $gradeInfo = SubjectManagement::where("grade", $submission->next_grade)->first();
+        $submission->open_enrollment = Enrollment::join('application', 'application.enrollment_id', 'enrollments.id')->where('application.id',$submission->application_id)->select("enrollments.id")->first()->id;
+
+        $data['grades']=Grade::get();
+        $data['enrollments']=Enrollment::where('status','Y')->where('district_id',Session::get('district_id'))->get();
+        $data['schools']=School::where('status','Y')->where('district_id',Session::get('district_id'))->get();
+        $applicationPrograms=Application::join('application_programs','application_programs.application_id','=','application.id')
+            ->where('application_id',$submission->application_id)
+            ->select('application_programs.*')->get();
+//         return $data['schools'];
+//            print_r($applicationPrograms);exit;
+        foreach ($applicationPrograms  as $key => $applicationProgram) 
+        {
+            // echo $applicationProgram->program_id."<BR>";
+            $applicationPrograms[$key]->grade_id=Grade::where('id',$applicationProgram->grade_id)->first()->name;
+            $applicationPrograms[$key]->program_id=Program::where('id',$applicationProgram->program_id)->first()->name;
+        }
+        $data['applicationPrograms']=$applicationPrograms;
+        $data['comments'] = SubmissionComment::where('submission_id', $id)
+            ->where('user_id', \Auth::user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        // return $submission;
+        return view('Submissions::edit_singletab',compact('data','submission','district','gradeInfo','display_outcome'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+
+         $msg=[
+            'zipcode.regex'=>'The zip code must be an integer. ',
+            'first_name'=>'Student First Name is required.',
+            'last_name'=>'Student Last Name is required.',
+            'parent_first_name'=>'Parent First Name is required.',
+            'parent_last_name'=>'Parent Last Name is required.',
+            'address'=>'Home Address is required.',
+            'city'=>'City is required.',
+            'state'=>'State is required.',
+            'phone_number'=>'Phone Number is required.',
+            'current_school'=>'School is required.',
+            'parent_email'=>'Parent Email is required.',
+            'first_choice'=>'First Choice is required.',
+            'second_choice'=>'Second Choice is required.',
+            'submission_status'=>'Submission Status is required.'
+        ];
+        $validateData = $request->validate([
+            'first_name' =>'required|max:255',
+            'last_name' =>'required|max:255',
+            'parent_first_name' =>'required|max:255',
+            'parent_last_name' =>'required|max:255',
+            'address' =>'required|max:255',
+            'city' =>'required|max:255',
+            'state' =>'required|max:255',
+            'phone_number' =>'required',
+            'current_school' =>'required|max:255',
+            'parent_email' =>'required|max:255',
+            'first_choice' =>'required',
+            'second_choice' =>'required',
+            'submission_status' =>'required',
+            'zip'=>['required','max:15','min:5'],
+        ],$msg);
+        
+        if($request->first_choice != "")
+        {
+            $rs = ApplicationProgram::where("id", $request->first_choice)->select("program_id")->first();
+            if(!empty($rs))
+                $first_choice_program_id = $rs->program_id;
+            else
+                $first_choice_program_id = 0;
+        }
+
+        if($request->second_choice != "")
+        {
+            $rs = ApplicationProgram::where("id", $request->second_choice)->select("program_id")->first();
+            if(!empty($rs))
+                $second_choice_program_id = $rs->program_id;
+            else
+                $second_choice_program_id = 0;
+        }
+
+        // return $request;
+        $data=[
+            // 'student_id'=>$request->student_id,
+            'state_id'=>$request->state_id,
+            // 'application_id'=>$request->application_id,
+            'first_choice_program_id' => $first_choice_program_id,
+            'second_choice_program_id' => $second_choice_program_id,
+            'first_name'=>$request->first_name,
+            'last_name'=>$request->last_name,
+            'race'=>$request->race,
+            'gender'=>$request->gender,
+            'birthday'=>$request->birthday,
+            'address'=>$request->address,
+            'city'=>$request->city,
+            'state'=>$request->state,
+            'zip'=>$request->zip,
+            'current_school'=>$request->current_school,
+            'current_grade'=>$request->current_grade,
+            'next_grade'=>$request->next_grade,
+            // 'non_hsv_student'=>$request->non_hsv_student,
+            'special_accommodations'=>$request->special_accommodations,
+            'parent_first_name'=>$request->parent_first_name,
+            'parent_last_name'=>$request->parent_last_name,
+            'parent_email'=>$request->parent_email,
+            /*'emergency_contact'=>$request->emergency_contact,
+            'emergency_contact_phone'=>$request->emergency_contact_phone,
+            'emergency_contact_relationship'=>$request->emergency_contact_relationship,*/
+            'phone_number'=>$request->phone_number,
+            'alternate_number'=>$request->alternate_number,
+            'zoned_school'=>$request->zoned_school,
+            // 'lottery_number'=>$request->lottery_number,
+            'first_choice'=>$request->first_choice,
+            'second_choice'=>$request->second_choice,
+            'open_enrollment'=>$request->open_enrollment,
+            'submission_status'=>$request->submission_status,
+            'mcp_employee'=>$request->mcp_employee,
+            'employee_first_name'=>$request->employee_first_name,
+            'employee_last_name'=>$request->employee_last_name,
+            'work_location'=>$request->work_location,
+            'employee_id'=>$request->employee_id,
+            'override_student'=>$request->override_student=='on'?'Y':'N',
+        ];
+        // return $data;
+
+        /*  Code Audit Trail to Get Original Value */
+        $initSubmission = Submissions::where('submissions.id',$id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+        $result=Submissions::where('id',$id)->update($data);
+        if($initSubmission->first_choice != $request->first_choice || $initSubmission->second_choice != $request->second_choice){
+            $comment_data = [
+                'submission_id' => $id,
+                'user_id' => \Auth::user()->id,
+                'comment' => $request->choice_comment,
+            ];
+            SubmissionComment::create($comment_data);
+        }
+        /*  Code Audit Trail to Get New Value */
+       $newObj =  Submissions::where('submissions.id',$id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+       $this->modelChanges($initSubmission,$newObj,"Submission - General");
+
+       $result =  $newObj;
+       if (isset($result)) {
+            Session::flash("success", "Submission Updated successfully.");
+        } else {
+            Session::flash("error", "Please Try Again.");
+        }
+        if (isset($request->save_exit))
+        {
+            return redirect('admin/Submissions');
+        }
+        return redirect('admin/Submissions/edit/'.$id);
+
+    }
+
+    public function resendConfirmationEmail($id)
+    {
+        $submission_data = Submissions::where('id', $id)->first();
+        $msg_data = ApplicationConfiguration::where("application_id", $submission_data['application_id'])->first();
+        $application_data = Application::where("id", $submission_data['application_id'])->first();
+
+        $emailArr = array();
+        $emailArr['application_id'] = $submission_data['application_id'];
+        $emailArr['first_name'] = $submission_data['first_name'];
+        $emailArr['last_name'] = $submission_data['last_name'];
+        $emailArr['parent_first_name'] = $submission_data['parent_first_name'];
+        $emailArr['parent_last_name'] = $submission_data['parent_last_name'];
+        $emailArr['email'] = $submission_data['parent_email'];
+        $emailArr['confirm_number'] = $submission_data['confirmation_no'];
+        $emailArr['transcript_due_date'] = getDateTimeFormat($application_data->transcript_due_date);
+
+        if($submission_data->submission_status == "Active")
+        {
+            $student_type = "active";
+            $emailArr['type'] = "active_email";
+            $emailArr['msg'] = $msg_data->active_email;
+            $confirm_msg = $msg_data->active_screen;
+            $msg_type = "exists_success_application_msg";
+            $emailArr['email'] =    $submission_data['parent_email'];
+            $subject = $msg_data->active_email_subject;
+            $confirm_title = $msg_data->active_screen_title;
+            $confirm_subject = $msg_data->active_screen_subject;
+        }
+        else
+        {
+            $emailArr['type'] = "pending_email";
+            $student_type = "pending";
+            $msg_type = "new_success_application_msg";
+            $emailArr['email'] = $submission_data['parent_email'];
+            $emailArr['msg'] = $msg_data->pending_email;
+            $confirm_msg = $msg_data->pending_screen;
+            $subject = $msg_data->pending_email_subject;
+            $confirm_title = $msg_data->pending_screen_title;
+            $confirm_subject = $msg_data->pending_screen_subject;
+        }
+        $subject = str_replace("{student_name}", $emailArr['first_name']." ".$emailArr['last_name'], $subject);
+            $subject = str_replace("{parent_name}", $emailArr['parent_first_name']." ".$emailArr['parent_last_name'], $subject);
+            $subject = str_replace("{confirm_number}", $emailArr['confirm_number'], $subject);
+        $emailArr['subject'] = $subject;
+
+        $mail = sendMail($emailArr);
+        if($mail){
+            Session::flash('success','Confirmation Mail Sent Successfully.');
+        }
+
+        return redirect('/admin/Submissions/edit/'.$id);
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function updateAudition(Request $req,$id)
+    {
+        $data  = array(
+            'submission_id' => $id,
+            'data' => isset($req['data']) ? $req['data'] : null
+        );
+        $checkExist = SubmissionAudition::where("submission_id",$id)->first();
+        if(isset($checkExist->id))
+        {
+            $checkExist->data = $req['data'];
+            $result = $checkExist->save();
+        }
+        else
+        {
+            $result = SubmissionAudition::create($data);
+        }
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        return redirect()->back();
+    }
+
+    public function updateWritingPrompt(Request $req,$id)
+    {
+        $data  = array(
+            'submission_id' => $id,
+            'data' => isset($req['data']) ? $req['data'] : null
+        );
+        $checkExist = SubmissionWritingPrompt::where("submission_id",$id)->first();
+        if(isset($checkExist->id))
+        {
+            $checkExist->data = $req['data'];
+            $result = $checkExist->save();
+        }
+        else
+        {
+            $result = SubmissionWritingPrompt::create($data);
+        }
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        return redirect()->back();
+    }
+    public function updateInterviewScore(Request $req,$id)
+    {
+        // return $req;
+        $data  = array(
+            'submission_id' => $id,
+            'data' => isset($req['data']) ? $req['data'] : null
+        );
+        $checkExist = SubmissionInterviewScore::where("submission_id",$id)->first();
+        if(isset($checkExist->id))
+        {
+            $checkExist->data = $req['data'];
+            $result = $checkExist->save();
+        }
+        else
+        {
+            $result = SubmissionInterviewScore::create($data);
+        }
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        return redirect()->back();
+    }
+    public function updateCommitteeScore(Request $req,$id)
+    {
+        // return $req;
+        $data  = array(
+            'submission_id' => $id,
+            'data' => isset($req['data']) ? $req['data'] : null
+        );
+        $checkExist = SubmissionCommitteeScore::where("submission_id",$id)->first();
+        if(isset($checkExist->id))
+        {
+            $checkExist->data = $req['data'];
+            $result = $checkExist->save();
+        }
+        else
+        {
+            $result = SubmissionCommitteeScore::create($data);
+        }
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        return redirect()->back();
+    }
+    public function updateConductDisciplinaryInfo(Request $req,$id)
+    {
+        // return $req;
+        $data  = [
+            'b_info' => $req->b_info ?? 0,
+            'c_info' => $req->c_info ?? 0,
+            'd_info' => $req->d_info ?? 0,
+            'e_info' => $req->e_info ?? 0,
+            'susp' => $req->susp ?? 0,
+            'susp_days' => $req->susp_days ?? 0,
+        ];
+
+        $conduct_discplinary_info = SubmissionConductDisciplinaryInfo::where("submission_id",$id)->join("submissions", "submissions.id", "submission_conduct_discplinary_info.submission_id")->join("application", "application.id", "submissions.application_id")->select("submission_conduct_discplinary_info.*", "submissions.application_id", "application.enrollment_id")->first();
+        if(isset($conduct_discplinary_info))
+        {
+            $result = SubmissionConductDisciplinaryInfo::where("submission_id", $id)->update($data);
+            $newconduct_discplinary_info = SubmissionConductDisciplinaryInfo::where("submission_id",$id)->join("submissions", "submissions.id", "submission_conduct_discplinary_info.submission_id")->join("application", "application.id", "submissions.application_id")->select("submission_conduct_discplinary_info.*", "submissions.application_id", "application.enrollment_id")->first();
+            $this->modelChanges($conduct_discplinary_info,$newconduct_discplinary_info,"Submission - CDI");
+        }
+        else
+        {   
+            $submission = Submissions::findOrFail($id);
+            if (isset($submission)) {
+                $new_data = [
+                    'submission_id' => $id,
+                    'stateID' => $submission->student_id ?? null,
+                    // 'student_id' => $submission->student_id ?? null,
+                ];
+                $data = array_merge($data, $new_data);
+                $result = SubmissionConductDisciplinaryInfo::create($data);
+                $app_data = SubmissionConductDisciplinaryInfo::where("submission_id",$id)->join("submissions", "submissions.id", "submission_conduct_discplinary_info.submission_id")->join("application", "application.id", "submissions.application_id")->select("submission_conduct_discplinary_info.*", "submissions.application_id", "application.enrollment_id")->first();
+                $this->modelCreate($app_data,"Submission - CDI");
+            }
+        }
+
+        $rsGradeData = SubmissionGrade::where("submission_id", $id)->first();
+        if(!empty($rsGradeData))
+        {
+            $ins = array();
+            $ins['submission_status'] = "Active";
+            $rsD = Submissions::where("id", $id)->update($ins);
+        }
+
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        if (isset($request->save_exit))
+        {
+            return redirect('admin/Submissions');
+        }
+
+        return redirect()->back();
+    }
+    public function updateStandardizedTesting(Request $req,$id)
+    {
+        return  $req;
+        foreach ($req['data'] as $k => $v) 
+        {
+            $data  = array(
+                'submission_id' => $id,
+                'data' => isset($req['data'][$k]) ? $req['data'][$k] : null,
+                'subject' => isset($req['subject'][$k]) ? $req['subject'][$k] : null,
+                'method' => isset($req['method'][$k]) ? $req['method'][$k] : null,
+            );
+            $checkExist = SubmissionStandardizedTesting::where("submission_id",$id)->where('subject',$data['subject'])->first();
+            if(isset($checkExist->id))
+            {
+                $checkExist->data = $data['data'];
+                $checkExist->method = $data['method'];
+                $result = $checkExist->save();
+            }
+            else
+            {
+                $result = SubmissionStandardizedTesting::create($data);
+            }
+        }
+        // return $data;
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        return redirect()->back();
+    }
+    public function updateAcademicGradeCalculation(Request $req,$id)
+    {
+         //return $req;
+        unset($req['_token']);
+
+        if(isset($req['subjects']))
+        {
+            $data['subjects'] = json_encode($req['subjects']);
+        }
+        $data['scoring_type'] = $req['scoring_type'];
+        $data['score'] = $req['score'];
+        if(isset($req['GradeAverageScore']))
+        {
+            $data['average_score'] = json_encode($req['GradeAverageScore']);
+        }
+        if(isset($req['GPA']))
+        {
+            $data['gpa'] = json_encode($req['GPA']);
+        }
+        $data['submission_id'] = $id;
+        //print_r($data);exit;
+        $checkExist = SubmissionAcademicGradeCalculation::where("submission_id",$id)->delete();
+        /*if(isset($checkExist->id))
+        {
+            $checkExist->data = $req['data'];
+            $checkExist->value = $req['value'];
+            $result = $checkExist->save();
+        }
+        else
+        {*/
+            //  foreach()
+        $result = SubmissionAcademicGradeCalculation::create($data);
+        //}
+        if(isset($result))
+        {
+            Session::flash("success","Data Updated successfully.");
+        }
+        else
+        {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        return redirect()->back();
+    }
+    
+    public function destroy($id)
+    {
+        //
+    }
+    public function storeGrades($id, Request $request)
+    {
+
+        // return $request;
+        $submission_grade = SubmissionGrade::where("submission_id",$id)->join("submissions", "submissions.id", "submission_grade.submission_id")->join("application", "application.id", "submissions.application_id")->select("submission_grade.*", "submissions.application_id", "application.enrollment_id")->get();
+        $current_grade = array();
+        foreach($submission_grade as $key=>$value)
+        {
+            $tmp = array();
+            $tmp['submission_id'] = $value->submission_id;
+            $tmp['application_id'] = $value->application_id;
+            $tmp['enrollment_id'] = $value->enrollment_id;
+            $tmp['academicYear'] = $value->academicYear;
+            $tmp['academicTerm'] = $value->academicTerm;
+            $tmp['GradeName'] = $value->GradeName;
+            $tmp['courseTypeID'] = $value->courseTypeID;
+            $tmp['numericGrade'] = $value->numericGrade;
+            $tmp['courseName'] = $value->courseName;
+            $current_grade[] = $tmp;
+        }
+
+        SubmissionGrade::where('submission_id', $id)->delete();
+        $courseType = Config::get('variables.courseType');
+        $new_grade = array();
+        if (isset($request->academicYear) && count($request->academicYear) > 0) {
+            $grades_data = [];
+            foreach ($request->academicYear as $key => $value) {
+                $grade_data = [
+                    'submission_id' => $id,
+                    'academicYear' => $request->academicYear[$key] ?? null,
+                    'academicTerm' => $request->academicTerm[$key] ?? null,
+                    'courseTypeID' => $request->courseTypeID[$key] ?? null,
+                    'courseName' => $request->courseName[$key] ?? null,
+                    'numericGrade' => $request->numericGrade[$key] ?? null,
+                    'sectionNumber' => $request->sectionNumber[$key] ?? null,
+                    'courseType' => $request->courseType[$key] ?? $courseType[$request->courseTypeID[$key]],
+                    'stateID' => $request->stateID[$key] ?? null,
+                    'GradeName' => $request->academicTerm[$key] ?? null,
+                    'sequence' => $request->sequence[$key] ?? null,
+                    'courseFullName' => $request->courseFullName[$key] ?? null,
+                    'fullsection_number' => $request->fullsection_number[$key] ?? null,
+                ];
+
+                $grades_data[] = $grade_data;
+                $initSubmission = Submissions::where('submissions.id',$id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+                $grade_data['enrollment_id'] = $initSubmission->enrollment_id;
+                $grade_data['application_id'] = $initSubmission->application_id;
+                $new_grade[] = $grade_data;
+            }
+            if(isset($grades_data)){
+                $result = SubmissionGrade::insert($grades_data);    
+            }
+            $this->modelGradeChanges($current_grade, $new_grade, "Submission Academic Grade");
+        }else{
+            $result = 1;
+        }
+
+        $rsCDIData = SubmissionConductDisciplinaryInfo::where("submission_id", $id)->first();
+        if(!empty($rsCDIData))
+        {
+            $ins = array();
+            $ins['submission_status'] = "Active";
+            $rsD = Submissions::where("id", $id)->update($ins);
+        }
+
+
+        if (isset($result)) {
+            Session::flash("success","Submission grades successfully.");
+        }else {
+            Session::flash("warning","Something went wrong , Please try again.");
+        }
+        if (isset($request->save_exit))
+        {
+            return redirect('admin/Submissions');
+        }
+        return redirect('admin/Submissions/edit/'.$id);
+    }
+
+    public function storeComments($id, Request $request) {
+        // return $id;
+        $rules = ['comment' => 'required'];
+        $messages = ['comment.required' => 'Please write few words into comment box.'];
+        $this->validate($request, $rules, $messages);
+        $data = [
+            'submission_id' => $id,
+            'user_id' => \Auth::user()->id,
+            'comment' => $request->comment,
+        ];
+        $comment = SubmissionComment::create($data);
+        if (!empty($comment)) {
+            Session::flash('success', "Comment added successfully.");
+        }else{
+            Session::flash('warning', "Something went wrong , Please try again.");
+        }
+
+ 
+
+        return redirect('admin/Submissions/edit/'.$id);
+    }
+
+    public function transferGradeStudentToSubmission()
+    {
+        $submission_data = Submissions::whereNotNull('student_id')->where('data_in_submission','N')->where('grade_exists', 'Y')->get();
+
+        if(isset($submission_data) && count($submission_data) > 0){
+            foreach($submission_data as $key => $submission){
+                $submission_grade = SubmissionGrade::where('submission_id',$submission->id)->get();
+                if(count($submission_grade) == 0){
+                    $student_grade = StudentGrade::where('stateID',$submission->student_id)->get();
+                    if(isset($student_grade) && count($student_grade) > 0){
+                        $grades_data = [];
+                        foreach ($student_grade as $key => $value) {
+                            // return $value;
+                            $array = [];
+                            $grade_data = [
+                                'submission_id' => $submission->id,
+                                'stateID' => $submission->student_id,
+                                'academicYear' => $value->academicYear ?? null,
+                                'academicTerm' => $value->academicTerm ?? null,
+                                'courseTypeID' => $value->courseTypeID ?? null,
+                                'courseName' => $value->courseName ?? null,
+                                'numericGrade' => $value->numericGrade ?? null,
+                                'sectionNumber' => $value->sectionNumber ?? null,
+                                'courseType' => $value->courseType ?? null,
+                                'stateID' => $value->stateID ?? null,
+                                'GradeName' => $value->GradeName ?? null,
+                                'sequence' => $value->sequence ?? null,
+                                'courseFullName' => $value->courseFullName ?? null,
+                                'fullsection_number' => $value->fullsection_number ?? null,
+                            ];
+                            $grades_data[] = $grade_data;
+                        }
+
+                        if(isset($grades_data)){
+                            SubmissionGrade::insert($grades_data);
+                            Submissions::where('id',$submission->id)->update(['data_in_submission'=>'Y']);
+                        }
+                        
+                    }
+                }else{
+                    Submissions::where('id',$submission->id)->update(['data_in_submission'=>'Y']);
+                }
+
+
+            }
+        } 
+
+        $submission_data = Submissions::whereNotNull('student_id')->where('conduct_disc_in_submission','N')->where('cdi_exists', 'Y')->get();
+
+        if(isset($submission_data) && count($submission_data) > 0){
+            foreach($submission_data as $key => $submission){
+                $submission_grade = SubmissionConductDisciplinaryInfo::where('submission_id',$submission->id)->get();
+                if(count($submission_grade) == 0){
+                    $student_cdi = StudentCDI::where('stateID',$submission->student_id)->get();
+                    if(isset($student_cdi) && count($student_cdi) > 0){
+                        $cdi_data = [];
+                        foreach ($student_cdi as $key => $value) {
+                            // return $value;
+                            $array = [];
+                            $data = [
+                                'submission_id' => $submission->id,
+                                'stateID' => $submission->student_id,
+                                'b_info' => $value->b_info ?? 0,
+                                'c_info' => $value->c_info ?? 0,
+                                'd_info' => $value->d_info ?? 0,
+                                'e_info' => $value->e_info ?? 0,
+                                'susp' => $value->susp ?? 0,
+                                'susp_days' => $value->susp_days ?? 0,
+                            ];
+                            $cdi_data[] = $data;
+                        }
+
+                        if(isset($cdi_data)){
+                            SubmissionConductDisciplinaryInfo::insert($cdi_data);
+                            Submissions::where('id',$submission->id)->update(['conduct_disc_in_submission'=>'Y']);
+                        }
+                        
+                    }
+                }else{
+                    Submissions::where('id',$submission->id)->update(['conduct_disc_in_submission'=>'Y']);
+                }
+
+                
+            }
+        }   
+    }
+
+    public function overrideCDI(Request $request)
+    {
+        $initSubmission = Submissions::where('submissions.id',$request->id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+        $result=Submissions::where('id',$request->id)->update(['cdi_override'=> $request->status]);
+        $newObj =  Submissions::where('submissions.id',$request->id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+        $this->modelChanges($initSubmission,$newObj,"Submission - CDI Override");
+
+        if(isset($request->comment) && $request->comment != ''){
+            $comment_data = [
+                'submission_id' => $request->id,
+                'user_id' => \Auth::user()->id,
+                'comment' => $request->comment,
+            ];
+            SubmissionComment::create($comment_data);
+        }
+
+
+        $rsGradeData = SubmissionGrade::where("submission_id", $request->id)->first();
+        if(!empty($rsGradeData) || ($request->status == "Y" && $initSubmission->grade_override == "Y"))
+        {
+            $ins = array();
+            $ins['submission_status'] = "Active";
+            $rsD = Submissions::where("id", $request->id)->update($ins);
+        }
+
+
+        if(isset($result))
+        {
+            return json_encode(true);
+        }
+        else {
+            return json_encode(false);
+        }
+    }
+
+    public function overrideGrade(Request $request)
+    {
+        $initSubmission = Submissions::where('submissions.id',$request->id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+        
+        $result=Submissions::where('id',$request->id)->update(['grade_override'=> $request->status]);
+        $newObj =  Submissions::where('submissions.id',$request->id)->join("application", "application.id", "submissions.application_id")->select("submissions.*", "application.enrollment_id")->first();
+        $this->modelChanges($initSubmission,$newObj,"Submission - Grade Override");
+
+        if(isset($request->comment) && $request->comment != ''){
+            $comment_data = [
+                'submission_id' => $request->id,
+                'user_id' => \Auth::user()->id,
+                'comment' => $request->comment,
+            ];
+            SubmissionComment::create($comment_data);
+        }
+
+        $rsCDIData = SubmissionConductDisciplinaryInfo::where("submission_id", $request->id)->first();
+        if(!empty($rsCDIData) || ($request->status == "Y" && $initSubmission->cdi_override == "Y"))
+        {
+            $ins = array();
+            $ins['submission_status'] = "Active";
+            $rsD = Submissions::where("id", $request->id)->update($ins);
+        }
+
+        if(isset($result))
+        {
+            return json_encode(true);
+        }
+        else {
+            return json_encode(false);
+        }
+    }
+    
+    public function fetchProgramGrade($first_program_id=0, $second_program_id=0)
+    {
+        if($first_program_id != "0" && $second_program_id != "0")
+        {
+            $data = Submissions::where(function($q) use ($first_program_id, $second_program_id) {
+                if($first_program_id == 0 && $second_program_id != 0)
+                {
+                    $q->where("second_choice_program_id", $second_program_id);
+                }
+                elseif($second_program_id == 0 && $first_program_id != 0)
+                {
+                    $q->where("first_choice_program_id", $first_program_id);
+                }
+                else
+                {
+                    $q->where("second_choice_program_id", $second_choice_program_id)->where('first_choice_program_id', $first_choice_program_id);
+                }
+            })->select(DB::raw("DISTINCT(next_grade)"))->orderByDesc("next_grade")->get();
+        }
+        else
+        {
+            
+             $data = Submissions::select(DB::raw("DISTINCT(next_grade)"))->orderByDesc("next_grade")->where("district_id", Session::get("diestrict_id"))->get();
+        }
+        return json_encode($data);
+    }
+
+}
